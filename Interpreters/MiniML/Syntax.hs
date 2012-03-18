@@ -39,10 +39,14 @@ module Interpreters.MiniML.Syntax where
 
   data BinaryPrim =
       B_Eq
-    | B_Plus
-    | B_Minus
-    | B_Mult
-    | B_Div
+    | B_I_Plus
+    | B_I_Minus
+    | B_I_Mult
+    | B_I_Div
+    | B_F_Plus
+    | B_F_Minus
+    | B_F_Mult
+    | B_F_Div
     | B_Assign
     deriving (Show, Eq)
 
