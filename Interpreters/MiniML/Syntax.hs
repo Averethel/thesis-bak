@@ -18,20 +18,11 @@ module Interpreters.MiniML.Syntax where
       TE_Var      TypeVar
     | TE_Arrow    TypeExpr TypeExpr
     | TE_Tuple    [TypeExpr]
-    | TE_CNullAry TypeConstr
-    | TE_CNAry    TypeExpr TypeConstr
-    deriving (Show, Eq)
-
-  data IntPrim =
-      IntL Integer
-    | IntPrim :+: IntPrim
-    | IntPrim :-: IntPrim
-    | IntPrim :/: IntPrim
-    | IntPrim :*: IntPrim
+    | TE_Constr   [TypeExpr] TypeConstr
     deriving (Show, Eq)
 
   data Constant =
-      C_Int IntPrim
+      C_Int Integer
     | C_Float Float
     | C_False
     | C_True
