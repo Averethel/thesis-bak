@@ -70,8 +70,9 @@ module Interpreters.MiniML.PrettyPrint () where
     show (K_Arrow k1 k2) = "( " ++ show k1 ++ " ) => " ++ show k2
 
   instance Show TypeExpr where
-    show (TE_Var tv)           = tv
-    show (TE_Arrow te1 te2)    = "( " ++ show te1 ++ " ) -> " ++ show te2
-    show (TE_Tuple tes)        = "( " ++ showTuple tes ++ " )"
-    show (TE_Constr [] tc)     = show tc
-    show (TE_Constr (t:ts) tc) = show t ++ " " ++ show (TE_Constr ts tc)
+    show (TE_Var tv)                       = tv
+    show (TE_Arrow te1@(TE_Arrow _ _) te2) = "( " ++ show te1 ++ " ) -> " ++ show te2
+    show (TE_Arrow te1 te2)                = show te1 ++ " -> " ++ show te2
+    show (TE_Tuple tes)                    = "( " ++ showTuple tes ++ " )"
+    show (TE_Constr [] tc)                 = show tc
+    show (TE_Constr (t:ts) tc)             = show t ++ " " ++ show (TE_Constr ts tc)
