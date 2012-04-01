@@ -85,3 +85,7 @@ module Interpreters.MiniML.Syntax where
     deriving Eq
 
   type Env = [(ValueName, TypeExpr)]
+
+  type Constraints = [(TypeExpr, TypeExpr)]
+
+  type SimpleConstraints = [TypeExpr]
