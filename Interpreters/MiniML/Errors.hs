@@ -5,3 +5,11 @@ module Interpreters.MiniML.Errors where
                                                   "\n\texpected: " ++ show expected ++
                                                   "\n\tgot: " ++ show subexpr ++ 
                                                   "\n\tof " ++ show what ++ ": " ++ show actual
+
+  unbound_variable v = "Unbound variable: " ++ show v
+
+  non_distinct_names expr = "Non distinct names in: " ++ show expr
+
+  non_simple_type te = "Cannot compare expressions of non simple type: " ++ show te
+
+  cannot_unify (te1, te2) = "Cannot unify: " ++ show te1 ++ "\n\twith: " ++ show te2
