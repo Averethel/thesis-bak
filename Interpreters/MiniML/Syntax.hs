@@ -60,7 +60,11 @@ module Interpreters.MiniML.Syntax where
     | D_LetRec [(ValueName, [(Pattern, Expr)])]
     deriving Eq
 
-  type Definitions = [Definition]
+  data Instruction =
+      IDF Definition
+    | IEX Expr
+
+  type Program = [Instruction]
 
   data Kind = 
       K_Type

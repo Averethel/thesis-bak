@@ -1,4 +1,4 @@
-module Interpreters.MiniML.Typing (type_of_definitions) where
+module Interpreters.MiniML.Typing (type_of_program) where
   import Interpreters.MiniML.Syntax
   import Interpreters.MiniML.PrettyPrint
   import Interpreters.MiniML.Kinding
@@ -210,14 +210,18 @@ module Interpreters.MiniML.Typing (type_of_definitions) where
       where
         (env', vs') = foldl (\(e, v) (vn, _) -> let f = fresh_type_var v in ((vn, TE_Var f):e, f:v)) (env, vs) bs
 
-  type_of_definitions :: Definitions -> Either String Env
-  type_of_definitions = type_of_definitions' [] [] [] [] where
-    type_of_definitions' :: [TypeVar] -> Constraints -> SimpleConstraints -> Env -> Definitions -> Either String Env
-    type_of_definitions' vs cs scs env []     =
+  type_of_program :: Program -> Either String Env
+  type_of_program = type_of_program' [] [] [] [] where
+    type_of_program' :: [TypeVar] -> Constraints -> SimpleConstraints -> Env -> Program -> Either String Env
+    type_of_program' vs cs scs env []     =
       case unify cs scs env of
-        Left err                             -> Left err
-        Right (scs', env')                   -> check_types_simple scs' env'
-    type_of_definitions' vs cs scs env (d:ds) =
+        Left err                               -> Left err
+        Right (scs', env')                     -> check_types_simple scs' env'
+    type_of_program' vs cs scs env ((IDF d):is) =
       case type_of_definition vs env d of
-        Left err                             -> Left err
-        Right ((vs', cs', scs'), env')       -> type_of_definitions' vs' (cs' ++ cs) (scs' ++ scs) (env' ++ env) ds
+        Left err                               -> Left err
+        Right ((vs', cs', scs'), env')         -> type_of_program' vs' (cs' ++ cs) (scs' ++ scs) (env' ++ env) is
+    type_of_program' vs cs scs env ((IEX e):is) =
+      case type_of_expression vs env e of
+        Left err                               -> Left err
+        Right ((vs', cs', scs'), te)           -> type_of_program' vs' (cs' ++ cs) (scs' ++ scs) (("it", te):env) is
