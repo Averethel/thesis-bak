@@ -17,8 +17,8 @@ module Interpreters.MiniML.Unification (unify, check_types_simple) where
 
   unify :: Constraints -> SimpleConstraints -> Env -> Either String (SimpleConstraints, Env)
   unify []                                          scs env = Right (scs, env)
-  unify ((TE_Var x, te):cs)                         scs env = unify cs (map (subst x te) scs) $ subst_env x te env -- tutaj pomyśleć czy nie trzeba dodać x <\- FV(te)
-  unify ((te, TE_Var x):cs)                         scs env = unify cs (map (subst x te) scs) $ subst_env x te env 
+  unify ((TE_Var x, te):cs)                         scs env = unify (map (\(a, b) -> (subst x te a, subst x te b)) cs) (map (subst x te) scs) $ subst_env x te env -- tutaj pomyśleć czy nie trzeba dodać x <\- FV(te)
+  unify ((te, TE_Var x):cs)                         scs env = unify (map (\(a, b) -> (subst x te a, subst x te b)) cs) (map (subst x te) scs) $ subst_env x te env 
   unify ((TE_Arrow t1 t2, TE_Arrow t1' t2'):cs)     scs env = unify ((t1,t1'):(t2,t2'):cs) scs env
   unify ((TE_Tuple ts1, TE_Tuple ts2):cs)           scs env
     | length ts1 == length ts2                              = unify ((zip ts1 ts2) ++ cs) scs env
