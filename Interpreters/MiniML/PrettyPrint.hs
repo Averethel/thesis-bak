@@ -44,6 +44,7 @@ module Interpreters.MiniML.PrettyPrint () where
     show (E_BPrim bp)       = show bp
     show (E_Val vn)         = vn
     show (E_Const c)        = show c
+    show (E_Location l)     = "Mem@?" ++ l
     show (E_Apply e1 e2)    =
       case e1 of
         E_BPrim bp         -> show e2 ++ " " ++ show bp
