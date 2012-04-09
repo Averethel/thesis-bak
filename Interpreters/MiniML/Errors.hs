@@ -15,3 +15,5 @@ module Interpreters.MiniML.Errors where
   cannot_unify (te1, te2) = "Cannot unify: " ++ show te1 ++ "\n\twith: " ++ show te2
 
   division_by_0 = "Division by 0"
+
+  match_failure = "Match failure"
