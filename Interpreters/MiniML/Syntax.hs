@@ -93,6 +93,13 @@ module Interpreters.MiniML.Syntax where
 
   type EvalEnv = [(ValueName, Expr)]
 
+  type Mem = [Expr]
+
   type Constraints = [(TypeExpr, TypeExpr)]
 
   type SimpleConstraints = [TypeExpr]
+
+  type InterpreterState = ((Env, Constraints, SimpleConstraints, [TypeVar]), (EvalEnv, Mem))
+
+  empty_state :: InterpreterState
+  empty_state = (([], [], [], []), ([], []))
