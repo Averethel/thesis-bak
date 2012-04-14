@@ -44,7 +44,7 @@ module Interpreters.MiniML.PrettyPrint () where
     show (E_BPrim bp)       = show bp
     show (E_Val vn)         = vn
     show (E_Const c)        = show c
-    show (E_Location l)     = "Mem@?" ++ l
+    show (E_Location l)     = "Mem@?" ++ show l
     show (E_Apply e1 e2)    =
       case e1 of
         E_BPrim bp         -> show e2 ++ " " ++ show bp
@@ -65,6 +65,13 @@ module Interpreters.MiniML.PrettyPrint () where
 
     showList []     c = c
     showList (d:ds) c = show d ++ ";;\n" ++ showList ds c
+
+  instance Show Instruction where
+    show (IDF df) = show df
+    show (IEX ex) = show ex
+
+    showList []     c = c
+    showList (i:is) c = show i ++ ";;\n" ++ showList is c
 
   instance Show Kind where
     show K_Type          = "*"
