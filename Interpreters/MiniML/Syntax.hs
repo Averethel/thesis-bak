@@ -41,7 +41,7 @@ module Interpreters.MiniML.Syntax where
       E_UPrim UnaryPrim
     | E_BPrim BinaryPrim
     | E_Val ValueName
-    | E_Location String -- for internal representation of references
+    | E_Location Integer -- for internal representation of references
     | E_Const Constant
     | E_Apply Expr Expr
     | E_Cons Expr Expr

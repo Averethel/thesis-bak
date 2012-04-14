@@ -1,4 +1,4 @@
-module Interpreters.MiniML.Eval where
+module Interpreters.MiniML.Eval (eval_program, eval_instruction) where
   import Interpreters.MiniML.Errors
   import Interpreters.MiniML.Syntax
   import Interpreters.MiniML.Typing
@@ -33,72 +33,53 @@ module Interpreters.MiniML.Eval where
   gen_subst (E_Tuple es)   (P_Tuple ps)   = concat $ zipWith gen_subst es ps
   gen_subst (E_Cons e1 e2) (P_Cons p1 p2) = gen_subst e1 p1 ++ gen_subst e2 p2
 
-  match_clause :: EvalEnv -> [(Pattern, Expr)] -> Expr -> Either String (Expr, EvalEnv)
-  match_clause _   []          _  = Left $ match_failure
-  match_clause env ((p, e):ms) ex
-    | ex `matches` p              = Right (e, gen_subst ex p ++ env)
-    | otherwise                   = match_clause env ms ex
+  match_clause :: EvalEnv -> Mem -> [(Pattern, Expr)] -> Expr -> Either String (Expr, EvalEnv, Mem)
+  match_clause _   _   []          _  = Left $ match_failure
+  match_clause env mem ((p, e):ms) ex
+    | ex `matches` p                  = Right (e, gen_subst ex p ++ env, mem)
+    | otherwise                       = match_clause env mem ms ex
 
-  is_location :: String -> Bool
-  is_location ('0':_) = True
-  is_location ('1':_) = True
-  is_location ('2':_) = True
-  is_location ('3':_) = True
-  is_location ('4':_) = True
-  is_location ('5':_) = True
-  is_location ('6':_) = True
-  is_location ('7':_) = True
-  is_location ('8':_) = True
-  is_location ('9':_) = True
-  is_location _       = False
+  gen_location :: Mem -> Integer
+  gen_location = toInteger.length
 
-  count_locations :: EvalEnv -> Integer
-  count_locations [] = 0
-  count_locations ((v, _):es)
-    | is_location v  = 1 + count_locations es
-    | otherwise      = count_locations es
+  get_reference :: Mem -> Expr -> Expr
+  get_reference (m:ms) (E_Location 0) = m
+  get_reference (m:ms) (E_Location n) = get_reference ms $ E_Location $ n - 1
 
-  gen_location :: EvalEnv -> String
-  gen_location e = show $ (+) 1 $ count_locations e
-
-  get_reference :: EvalEnv -> Expr -> Expr
-  get_reference e (E_Location l) = fromJust $ l `lookup` e
-
-  store_reference :: EvalEnv -> Expr -> Expr -> EvalEnv
-  store_reference []             (E_Location l) v = [(l, v)]
-  store_reference (e@(l',v'):es) (E_Location l) v
-    | l == l'                                     = (l, v):es
-    | otherwise                                   = e : store_reference es (E_Location l) v 
+  store_reference :: Mem -> Expr -> Expr -> Mem
+  store_reference []     (E_Location 0) v = [v]
+  store_reference (m:ms) (E_Location 0) v = v:ms
+  store_reference (m:ms) (E_Location n) v = m:store_reference ms (E_Location $ n-1) v
 
   get_value :: EvalEnv -> Expr -> Expr
   get_value e (E_Val n) = fromJust $ n `lookup` e
 
-  eval_unary_primitive :: EvalEnv -> UnaryPrim -> Expr -> (Expr, EvalEnv)
-  eval_unary_primitive env (U_Not)     (E_Const C_True)    = (E_Const C_False, env)
-  eval_unary_primitive env (U_Not)     (E_Const C_False)   = (E_Const C_True, env)
-  eval_unary_primitive env (U_I_Minus) (E_Const (C_Int n)) = (E_Const $ C_Int $ 0 - n, env)
-  eval_unary_primitive env (U_Ref)     e                   = (l, store_reference env l e) where
-    l = E_Location $ gen_location env
-  eval_unary_primitive env (U_Deref)   e@(E_Location l)    = (get_reference env e, env)
+  eval_unary_primitive :: EvalEnv -> Mem -> UnaryPrim -> Expr -> (Expr, EvalEnv, Mem)
+  eval_unary_primitive env mem (U_Not)     (E_Const C_True)    = (E_Const C_False, env, mem)
+  eval_unary_primitive env mem (U_Not)     (E_Const C_False)   = (E_Const C_True, env, mem)
+  eval_unary_primitive env mem (U_I_Minus) (E_Const (C_Int n)) = (E_Const $ C_Int $ 0 - n, env, mem)
+  eval_unary_primitive env mem (U_Ref)     e                   = (l, env, store_reference mem l e) where
+    l = E_Location $ gen_location mem
+  eval_unary_primitive env mem (U_Deref)   e@(E_Location l)    = (get_reference mem e, env, mem)
 
-  eval_binary_primitive :: EvalEnv -> Expr -> BinaryPrim -> Expr -> Either String (Expr, EvalEnv)
-  eval_binary_primitive env (E_Const c1) B_Eq (E_Const c2)
-    | c1 == c2                                                                  = Right (E_Const C_True, env)
-    | otherwise                                                                 = Right (E_Const C_False, env)
-  eval_binary_primitive env e1@(E_Location l1) B_Eq e2@(E_Location l2)          = Right (E_Apply (E_Apply (E_BPrim B_Eq) (E_Apply (E_UPrim U_Deref) e1)) (E_Apply (E_UPrim U_Deref) e2), env)
-  eval_binary_primitive env (E_Cons _ _) B_Eq (E_Const C_Nil)                   = Right (E_Const C_False, env)
-  eval_binary_primitive env (E_Const C_Nil) B_Eq (E_Cons _ _)                   = Right (E_Const C_False, env)
-  eval_binary_primitive env (E_Cons e1 e2) B_Eq (E_Cons e1' e2')                = Right (E_And (E_Apply (E_Apply (E_BPrim B_Eq) e1) e1') (E_Apply (E_Apply (E_BPrim B_Eq) e2) e2'), env)
-  eval_binary_primitive env (E_Tuple es1) B_Eq (E_Tuple es2)
-    | length es1 == length es2                                                  = Right (foldl E_And (E_Const C_True) $ zipWith (\e1 e2 -> E_Apply (E_Apply (E_BPrim B_Eq) e1) e2) es1 es2, env)
-    | otherwise                                                                 = Right (E_Const C_False, env)
-  eval_binary_primitive env (E_Const (C_Int n1)) B_I_Plus (E_Const (C_Int n2))  = Right (E_Const $ C_Int $ n1 + n2, env)
-  eval_binary_primitive env (E_Const (C_Int n1)) B_I_Minus (E_Const (C_Int n2)) = Right (E_Const $ C_Int $ n1 - n2, env)
-  eval_binary_primitive env (E_Const (C_Int n1)) B_I_Mult (E_Const (C_Int n2))  = Right (E_Const $ C_Int $ n1 * n2, env)
-  eval_binary_primitive env (E_Const (C_Int n1)) B_I_Div (E_Const (C_Int n2))
-    | n2 /= 0                                                                   = Right (E_Const $ C_Int $ n1 `div` n2, env)
-    | otherwise                                                                 = Left $ division_by_0
-  eval_binary_primitive env e1@(E_Location l) B_Assign e2                       = Right (E_Const C_Unit, store_reference env e1 e2)
+  eval_binary_primitive :: EvalEnv -> Mem -> Expr -> BinaryPrim -> Expr -> Either String (Expr, EvalEnv, Mem)
+  eval_binary_primitive env mem (E_Const c1) B_Eq (E_Const c2)
+    | c1 == c2                                                                      = Right (E_Const C_True, env, mem)
+    | otherwise                                                                     = Right (E_Const C_False, env, mem)
+  eval_binary_primitive env mem e1@(E_Location l1) B_Eq e2@(E_Location l2)          = Right (E_Apply (E_Apply (E_BPrim B_Eq) (E_Apply (E_UPrim U_Deref) e1)) (E_Apply (E_UPrim U_Deref) e2), env, mem)
+  eval_binary_primitive env mem (E_Cons _ _) B_Eq (E_Const C_Nil)                   = Right (E_Const C_False, env, mem)
+  eval_binary_primitive env mem (E_Const C_Nil) B_Eq (E_Cons _ _)                   = Right (E_Const C_False, env, mem)
+  eval_binary_primitive env mem (E_Cons e1 e2) B_Eq (E_Cons e1' e2')                = Right (E_And (E_Apply (E_Apply (E_BPrim B_Eq) e1) e1') (E_Apply (E_Apply (E_BPrim B_Eq) e2) e2'), env, mem)
+  eval_binary_primitive env mem (E_Tuple es1) B_Eq (E_Tuple es2)
+    | length es1 == length es2                                                      = Right (foldl E_And (E_Const C_True) $ zipWith (\e1 e2 -> E_Apply (E_Apply (E_BPrim B_Eq) e1) e2) es1 es2, env, mem)
+    | otherwise                                                                     = Right (E_Const C_False, env, mem)
+  eval_binary_primitive env mem (E_Const (C_Int n1)) B_I_Plus (E_Const (C_Int n2))  = Right (E_Const $ C_Int $ n1 + n2, env, mem)
+  eval_binary_primitive env mem (E_Const (C_Int n1)) B_I_Minus (E_Const (C_Int n2)) = Right (E_Const $ C_Int $ n1 - n2, env, mem)
+  eval_binary_primitive env mem (E_Const (C_Int n1)) B_I_Mult (E_Const (C_Int n2))  = Right (E_Const $ C_Int $ n1 * n2, env, mem)
+  eval_binary_primitive env mem (E_Const (C_Int n1)) B_I_Div (E_Const (C_Int n2))
+    | n2 /= 0                                                                       = Right (E_Const $ C_Int $ n1 `div` n2, env, mem)
+    | otherwise                                                                     = Left $ division_by_0
+  eval_binary_primitive env mem e1@(E_Location l) B_Assign e2                       = Right (E_Const C_Unit, env, store_reference mem e1 e2)
 
   recfun :: [(ValueName, [(Pattern, Expr)])] -> [(Pattern, Expr)] -> Expr
   recfun lrbs pm = apply_substs subst $ apply_substs renaming_subst (E_Function pm) where
@@ -143,89 +124,88 @@ module Interpreters.MiniML.Eval where
     (P_Cons p1 p2) `binds` vn = p1 `binds` vn || p2 `binds` vn
     _              `binds` _  = False
 
-  eval_step_expr :: EvalEnv -> Expr -> Either String (Expr, EvalEnv)
-  eval_step_expr env e@(E_Val vn) = Right (get_value env e, env)
-  eval_step_expr env e@(E_Location l) = Right (get_reference env e, env)
-  eval_step_expr env (E_Apply e1 e2)
-    | not (is_value e1) = case eval_step_expr env e1 of
-      Left err          -> Left err
-      Right (e1', env') -> Right (E_Apply e1' e2, env')
-    | is_value e1 && not (is_value e2) = case eval_step_expr env e2 of
-      Left err          -> Left err
-      Right (e2', env') -> Right (E_Apply e1 e2', env')
-  eval_step_expr env (E_Apply (E_UPrim up) e1) = Right $ eval_unary_primitive env up e1
-  eval_step_expr env (E_Apply (E_Apply (E_BPrim bp) e1) e2) = eval_binary_primitive env e1 bp e2
-  eval_step_expr env (E_Apply (E_Function pm) e2) = match_clause env pm e2
-  eval_step_expr env (E_Cons e1 e2)
-    | not (is_value e1) = case eval_step_expr env e1 of
-      Left err          -> Left err
-      Right (e1', env') -> Right (E_Cons e1' e2, env')
-    | is_value e1 && not (is_value e2) = case eval_step_expr env e2 of
-      Left err          -> Left err
-      Right (e2', env') -> Right (E_Cons e1 e2', env')
-  eval_step_expr env (E_Tuple es) = eval_step_tuple env es [] where
-    eval_step_tuple env []     acc = Right (E_Tuple acc, env)
-    eval_step_tuple env (e:es) acc
-      | is_value e = eval_step_tuple env es (e:acc)
-      | otherwise  = case eval_step_expr env e of
-        Left err         -> Left err
-        Right (e', env') -> Right (E_Tuple $ (reverse acc) ++ (e':es), env')
-  eval_step_expr env (E_And e1 e2) = Right (E_ITE e1 e2 (E_Const C_False), env)
-  eval_step_expr env (E_Or e1 e2) = Right (E_ITE e1 (E_Const C_True) e2, env)
-  eval_step_expr env (E_ITE (E_Const C_True) e2 e3) = Right (e2, env)
-  eval_step_expr env (E_ITE (E_Const C_False) e2 e3) = Right (e3, env)
-  eval_step_expr env (E_ITE e1 e2 e3)
-    | not (is_value e1) = case eval_step_expr env e1 of
-      Left err         -> Left err
-      Right (e', env') -> Right (E_ITE e' e2 e3, env')
-  eval_step_expr env (E_Seq e1 e2)
-    | not (is_value e1) = case eval_step_expr env e1 of
-      Left err          -> Left err
-      Right (e1', env') -> Right (E_Seq e1' e2, env')
-    | is_value e1        = Right (e2, env)
-  eval_step_expr env (E_Let (p, e1) e2)
-    | is_value e1 = Right (e2, gen_subst e1 p ++ env)
-    | otherwise   = case eval_step_expr env e1 of
-      Left err          -> Left err
-      Right (e1', env') -> Right (E_Let (p, e1') e2, env')
-  eval_step_expr env (E_LetRec lrbs es) = Right (es, gen_env lrbs ++ env) where
+  eval_step_expr :: EvalEnv -> Mem -> Expr -> Either String (Expr, EvalEnv, Mem)
+  eval_step_expr env mem e@(E_Val vn) = Right (get_value env e, env, mem)
+  eval_step_expr env mem e@(E_Location l) = Right (get_reference mem e, env, mem)
+  eval_step_expr env mem (E_Apply e1 e2)
+    | not (is_value e1) = case eval_step_expr env mem e1 of
+      Left err                -> Left err
+      Right (e1', env', mem') -> Right (E_Apply e1' e2, env', mem')
+    | is_value e1 && not (is_value e2) = case eval_step_expr env mem e2 of
+      Left err                -> Left err
+      Right (e2', env', mem') -> Right (E_Apply e1 e2', env', mem')
+  eval_step_expr env mem (E_Apply (E_UPrim up) e1) = Right $ eval_unary_primitive env mem up e1
+  eval_step_expr env mem (E_Apply (E_Apply (E_BPrim bp) e1) e2) = eval_binary_primitive env mem e1 bp e2
+  eval_step_expr env mem (E_Apply (E_Function pm) e2) = match_clause env mem pm e2
+  eval_step_expr env mem (E_Cons e1 e2)
+    | not (is_value e1) = case eval_step_expr env mem e1 of
+      Left err                -> Left err
+      Right (e1', env', mem') -> Right (E_Cons e1' e2, env', mem')
+    | is_value e1 && not (is_value e2) = case eval_step_expr env mem e2 of
+      Left err                -> Left err
+      Right (e2', env', mem') -> Right (E_Cons e1 e2', env', mem')
+  eval_step_expr env mem (E_Tuple es) = eval_step_tuple env mem es [] where
+    eval_step_tuple env mem []     acc = Right (E_Tuple acc, env, mem)
+    eval_step_tuple env mem (e:es) acc
+      | is_value e = eval_step_tuple env mem es (e:acc)
+      | otherwise  = case eval_step_expr env mem e of
+        Left err               -> Left err
+        Right (e', env', mem') -> Right (E_Tuple $ (reverse acc) ++ (e':es), env', mem')
+  eval_step_expr env mem (E_And e1 e2) = Right (E_ITE e1 e2 (E_Const C_False), env, mem)
+  eval_step_expr env mem (E_Or e1 e2) = Right (E_ITE e1 (E_Const C_True) e2, env, mem)
+  eval_step_expr env mem (E_ITE (E_Const C_True) e2 e3) = Right (e2, env, mem)
+  eval_step_expr env mem (E_ITE (E_Const C_False) e2 e3) = Right (e3, env, mem)
+  eval_step_expr env mem (E_ITE e1 e2 e3)
+    | not (is_value e1) = case eval_step_expr env mem e1 of
+      Left err               -> Left err
+      Right (e', env', mem') -> Right (E_ITE e' e2 e3, env', mem')
+  eval_step_expr env mem (E_Seq e1 e2)
+    | not (is_value e1) = case eval_step_expr env mem e1 of
+      Left err                -> Left err
+      Right (e1', env', mem') -> Right (E_Seq e1' e2, env', mem')
+    | is_value e1        = Right (e2, env, mem)
+  eval_step_expr env mem (E_Let (p, e1) e2)
+    | is_value e1 = Right (e2, gen_subst e1 p ++ env, mem)
+    | otherwise   = case eval_step_expr env mem e1 of
+      Left err                -> Left err
+      Right (e1', env', mem') -> Right (E_Let (p, e1') e2, env', mem')
+  eval_step_expr env mem (E_LetRec lrbs es) = Right (es, gen_env lrbs ++ env, mem) where
     gen_env []            = []
     gen_env ((vn, pm):bs) = (vn, recfun lrbs pm) : gen_env bs
 
-  eval_expr :: EvalEnv -> Expr -> Either String Expr
-  eval_expr env e = eval_expr' env e where
-    eval_expr' env e
-      | is_value e = Right e
-      | otherwise  = case eval_step_expr env e of
-        Left err         -> Left err
-        Right (e', env') -> eval_expr' env' e'
+  eval_expr :: EvalEnv -> Mem -> Expr -> Either String (Expr, Mem)
+  eval_expr env mem e
+    | is_value e = Right (e, mem)
+    | otherwise  = case eval_step_expr env mem e of
+      Left err               -> Left err
+      Right (e', env', mem') -> eval_expr env' mem' e'
 
-  eval_definition :: EvalEnv -> Definition -> Either String EvalEnv
-  eval_definition env (D_Let (p, e))
-    | is_value e && e `matches` p       = Right $ gen_subst e p
+  eval_definition :: EvalEnv -> Mem -> Definition -> Either String (EvalEnv, Mem)
+  eval_definition env mem (D_Let (p, e))
+    | is_value e && e `matches` p       = Right (gen_subst e p, mem)
     | is_value e && not (e `matches` p) = Left match_failure
     | not (is_value e)                  =
-      case eval_expr env e of
+      case eval_expr env mem e of
         Left err                       -> Left err
-        Right e'                       -> eval_definition env (D_Let (p, e'))
-  eval_definition env (D_LetRec lrbs)   = Right $ gen_env lrbs where
+        Right (e', mem')               -> eval_definition env mem' (D_Let (p, e'))
+  eval_definition env mem (D_LetRec lrbs)   = Right (gen_env lrbs, mem) where
     gen_env []                          = []
     gen_env ((vn, pm):bs)               = (vn, recfun lrbs pm) : gen_env bs
 
-  eval_instruction :: EvalEnv -> Instruction -> Either String ([Expr], EvalEnv)
-  eval_instruction env (IDF df) =
-    case eval_definition env df of
+  eval_instruction :: EvalEnv -> Mem -> Instruction -> Either String ([Expr], EvalEnv, Mem)
+  eval_instruction env mem (IDF df) =
+    case eval_definition env mem df of
       Left err                 -> Left err
-      Right env'               -> Right (map (\(vn, _) -> E_Val vn) env', env' ++ env)
-  eval_instruction env (IEX ex) =
-    case eval_expr env ex of
+      Right (env', mem')       -> Right (map (\(vn, _) -> E_Val vn) env', env' ++ env, mem')
+  eval_instruction env mem (IEX ex) =
+    case eval_expr env mem ex of
       Left err                 -> Left err
-      Right ex'                -> Right ([ex], ("it", ex):env)
+      Right (ex', mem')        -> Right ([ex'], ("it", ex'):env, mem')
 
-  eval_program :: Program -> Either String ([Expr], EvalEnv)
-  eval_program = eval_program' [] [] where
-    eval_program' exprs env []     = Right (exprs, env)
-    eval_program' exprs env (i:is) =
-      case eval_instruction env i of
-        Left err                  -> Left err
-        Right (exprs', env')      -> eval_program' exprs' env' is
+  eval_program :: EvalEnv -> Mem -> Program -> Either String ([Expr], EvalEnv, Mem)
+  eval_program env mem = eval_program' env mem [] where
+    eval_program' env mem exprs []     = Right (exprs, env, mem)
+    eval_program' env mem exprs (i:is) =
+      case eval_instruction env mem i of
+        Left err                   -> Left err
+        Right (exprs', env', mem') -> eval_program' env' mem' exprs' is
