@@ -1,4 +1,4 @@
-module Interpreters.MiniML.Parser where
+module Interpreters.MiniML.Parser (inputParser, program, expressionParser) where
   import Interpreters.MiniML.Syntax
   import Interpreters.MiniML.PrettyPrint
 
@@ -83,7 +83,7 @@ module Interpreters.MiniML.Parser where
     pWild  = const P_Wildcard <$> char '_'
     pConst = P_Const <$> constant
     pTuple = P_Tuple <$> (parens . commaSep $ pattern)
-    pList  = foldr P_Cons (P_Const C_Nil) <$> (brackets . semiSep $ pattern)
+    pList  = foldr P_Cons (P_Const C_Nil) <$> (brackets . commaSep $ pattern)
 
   pattern :: Parser Pattern
   pattern = buildExpressionParser [[Infix (reservedOp "::" *> pure P_Cons) AssocRight]] prePattern
@@ -132,10 +132,10 @@ module Interpreters.MiniML.Parser where
     bAssgn = const B_Assign <$> reservedOp ":="
 
   preExpression :: Parser Expr
-  preExpression = choice [eVal, eConst, eList, eTuple, eITE, eFunction, eLet, eLetRec, try eUprim, eBprim] where
+  preExpression = choice [try $ parens $ expression, eVal, eConst, eList, eTuple, eITE, eFunction, eLet, eLetRec, try eUprim, eBprim] where
     eVal       = E_Val <$> identifier
     eConst     = E_Const <$> constant
-    eList      = foldr E_Cons (E_Const C_Nil) <$> (brackets . semiSep $ expression)
+    eList      = foldr E_Cons (E_Const C_Nil) <$> (brackets . commaSep $ expression)
     eTuple     = E_Tuple <$> (parens . commaSep $ expression)
     eITE       = E_ITE <$> (reserved "if" *> expression) <*> (reserved "then" *> expression) <*> (reserved "else" *> expression)
     eFunction  = E_Function <$> (reserved "function" *> patternMatching "->")
@@ -156,6 +156,10 @@ module Interpreters.MiniML.Parser where
 
   expressionFullApp :: Parser Expr
   expressionFullApp = buildExpressionParser [
+                [Prefix (reserved "not" *> pure (E_Apply (E_UPrim U_Not)))],
+                [Prefix ((reserved "ref" <|> reservedOp "!") *> pure (E_Apply (E_UPrim U_Ref)))],
+                [Prefix (reservedOp "&" *> pure (E_Apply (E_UPrim U_Deref)))],
+                [Prefix (reservedOp "-" *> pure (E_Apply (E_UPrim U_I_Minus)))],
                 [Infix (reservedOp "@" *> pure E_Apply) AssocLeft],
                 [Infix (reservedOp "::" *> pure E_Cons) AssocRight],
                 [Infix (reservedOp "&&" *> pure E_And) AssocLeft],
@@ -166,11 +170,7 @@ module Interpreters.MiniML.Parser where
                 [Infix (reservedOp "+" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_I_Plus) a) b)) AssocLeft],
                 [Infix (reservedOp "-" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_I_Minus) a) b)) AssocLeft],
                 [Infix (reservedOp "==" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Eq) a) b)) AssocNone],
-                [Infix (reservedOp ":=" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Assign) a) b)) AssocNone],
-                [Prefix (reserved "not" *> pure (E_Apply (E_UPrim U_Not)))],
-                [Prefix ((reserved "ref" <|> reservedOp "!") *> pure (E_Apply (E_UPrim U_Ref)))],
-                [Prefix (reservedOp "&" *> pure (E_Apply (E_UPrim U_Deref)))],
-                [Prefix (reservedOp "-" *> pure (E_Apply (E_UPrim U_I_Minus)))]
+                [Infix (reservedOp ":=" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Assign) a) b)) AssocNone]
                 ] preExpression
 
   expression :: Parser Expr
@@ -183,16 +183,17 @@ module Interpreters.MiniML.Parser where
 
   instruction :: Parser Instruction
   instruction = choice [try iex, idf] where
-    iex = IEX <$> expression
-    idf = IDF <$> definition
+    iex = IEX <$> expression <* reservedOp ";;"
+    idf = IDF <$> definition <* reservedOp ";;"
 
   program :: Parser Program
-  program = do
-              i <- instruction
-              is <- many (reservedOp ";;" *> instruction)
-              return $ i:is
+  program = many instruction
 
-  runPp :: Parser a -> String -> String -> Either ParseError a
-  runPp p = parse (PTok.whiteSpace lang  >> p)
+  runPp :: Parser a -> String -> Either ParseError a
+  runPp p = parse (PTok.whiteSpace lang  >> p) ""
 
-  -- testParser = either (error . ("parse error: " ++ ) . show) id . runPp expression "input"
+  inputParser :: String -> Either ParseError Instruction
+  inputParser = runPp instruction
+
+  expressionParser :: String -> Either ParseError Expr
+  expressionParser = runPp (expression <* reservedOp ";;")
