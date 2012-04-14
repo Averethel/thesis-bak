@@ -1,9 +1,8 @@
-module Interpreters.MiniML.Typing (type_of_program) where
+module Interpreters.MiniML.Typing (type_of_instruction, type_of_expression, type_of_program) where
   import Interpreters.MiniML.Syntax
   import Interpreters.MiniML.PrettyPrint
   import Interpreters.MiniML.Kinding
   import Interpreters.MiniML.Errors
-  import Interpreters.MiniML.Unification
 
   fresh_type_var :: [TypeVar] -> TypeVar
   fresh_type_var = ("a" ++).show.length
@@ -210,18 +209,16 @@ module Interpreters.MiniML.Typing (type_of_program) where
       where
         (env', vs') = foldl (\(e, v) (vn, _) -> let f = fresh_type_var v in ((vn, TE_Var f):e, f:v)) (env, vs) bs
 
-  type_of_program :: Program -> Either String Env
-  type_of_program = type_of_program' [] [] [] [] where
-    type_of_program' :: [TypeVar] -> Constraints -> SimpleConstraints -> Env -> Program -> Either String Env
-    type_of_program' vs cs scs env []     =
-      case unify cs scs env of
-        Left err                               -> Left err
-        Right (scs', env')                     -> check_types_simple scs' env'
-    type_of_program' vs cs scs env ((IDF d):is) =
-      case type_of_definition vs env d of
-        Left err                               -> Left err
-        Right ((vs', cs', scs'), env')         -> type_of_program' vs' (cs' ++ cs) (scs' ++ scs) (env' ++ env) is
-    type_of_program' vs cs scs env ((IEX e):is) =
-      case type_of_expression vs env e of
-        Left err                               -> Left err
-        Right ((vs', cs', scs'), te)           -> type_of_program' vs' (cs' ++ cs) (scs' ++ scs) (("it", te):env) is
+  type_of_instruction :: [TypeVar] -> Env -> Instruction -> Either String (([TypeVar], Constraints, SimpleConstraints), Env)
+  type_of_instruction vs env (IDF df) = type_of_definition vs env df
+  type_of_instruction vs env (IEX ex) = case type_of_expression vs env ex of
+    Left err                         -> Left err
+    Right ((vs', cs', scs'), te)     -> Right ((vs', cs', scs'), [("it", te)])
+
+  type_of_program :: [TypeVar] -> Env -> Program -> Either String (([TypeVar], Constraints, SimpleConstraints), Env)
+  type_of_program = type_of_program' [] [] where
+    type_of_program' cs scs vs env []            = Right ((vs, cs, scs), env)
+    type_of_program' cs scs vs env (i:is)        =
+      case type_of_instruction vs env i of
+        Left err                        -> Left err
+        Right ((vs', cs', scs'), env')  -> type_of_program' (cs' ++ cs) (scs' ++ scs) vs' (env' ++ env) is
