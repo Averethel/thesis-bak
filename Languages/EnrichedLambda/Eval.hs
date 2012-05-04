@@ -2,7 +2,7 @@
   FlexibleContexts
   #-}
 
-module Languages.EnrichedLambda.Eval where
+module Languages.EnrichedLambda.Eval (eval_expr) where
   import Languages.EnrichedLambda.Errors
   import Languages.EnrichedLambda.Syntax
   import Languages.EnrichedLambda.State

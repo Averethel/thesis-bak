@@ -2,7 +2,7 @@
   FlexibleContexts
   #-}
 
-module Languages.EnrichedLambda.Unification where
+module Languages.EnrichedLambda.Unification (unify, check_compare) where
   import Languages.EnrichedLambda.Errors
   import Languages.EnrichedLambda.PrettyPrint
   import Languages.EnrichedLambda.State
