@@ -32,7 +32,7 @@ module Languages.MiniML.Main (main) where
     loop state = do
       inp <- getInputLine ":> "
       case inp of
-        Nothing                  -> return ()
+        Nothing                  -> loop state
         Just ":q"                -> return ()
         Just ":clear"            -> loop empty_state
         Just ":env v"            -> do
