@@ -1,4 +1,4 @@
-module Languages.MiniML.Eval (eval_program, eval_instruction) where
+module Languages.MiniML.Eval (eval_program, eval_instruction, matches) where
   import Languages.MiniML.Errors
   import Languages.MiniML.Syntax
   import Languages.MiniML.Typing

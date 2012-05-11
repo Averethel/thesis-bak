@@ -49,7 +49,7 @@ module Languages.MiniML.PrettyPrint () where
       case e1 of
         E_BPrim bp         -> show e2 ++ " " ++ show bp
         _                  -> show e1 ++ " " ++ show e2
-    show (E_Cons e1 e2)     = show e1 ++ " :: " ++ show e2
+    show (E_Cons e1 e2)     = show e1 ++ " :: ( " ++ show e2 ++ " )"
     show (E_Tuple es)       = "( " ++ showTuple es ++ " )"
     show (E_And e1 e2)      = show e1 ++ " && " ++ show e2
     show (E_Or e1 e2)       = show e1 ++ " || " ++ show e2

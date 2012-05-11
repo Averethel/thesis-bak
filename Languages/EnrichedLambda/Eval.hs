@@ -2,7 +2,7 @@
   FlexibleContexts
   #-}
 
-module Languages.EnrichedLambda.Eval (eval_expr) where
+module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr) where
   import Languages.EnrichedLambda.Errors
   import Languages.EnrichedLambda.Syntax
   import Languages.EnrichedLambda.State
@@ -157,12 +157,12 @@ module Languages.EnrichedLambda.Eval (eval_expr) where
     add_to_eval_env vn e1
     return e2
   eval_step_expr (E_Apply e1 e2)
-    | is_value e1 && (not . is_value $ e2) = do
-      e2' <- eval_step_expr e2
-      return $ E_Apply e1 e2'
-    | not . is_value $ e1 = do
+    | is_value e2 && (not . is_value $ e1) = do
       e1' <- eval_step_expr e1
       return $ E_Apply e1' e2
+    | not . is_value $ e2 = do
+      e2' <- eval_step_expr e2
+      return $ E_Apply e1 e2'
   eval_step_expr (E_Apply (E_Function vn e1) e2) = do
     add_to_eval_env vn e2
     return e1
