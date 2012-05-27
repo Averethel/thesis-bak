@@ -4,3 +4,4 @@ TODO
 *.old
 *.mml
 Interpreters/MiniML/MiniML
+Tests.hs
