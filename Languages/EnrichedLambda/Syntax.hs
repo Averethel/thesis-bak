@@ -8,26 +8,35 @@ module Languages.EnrichedLambda.Syntax where
     | C_Unit
     deriving Eq
   
+  data UnaryPrim =
+      U_Not
+    | U_Ref
+    | U_Deref
+    | U_Fst
+    | U_Snd
+    | U_Head
+    | U_Tail
+    | U_Empty
+    deriving Eq
+  
+  data BinaryPrim =
+      B_Eq
+    | B_Plus
+    | B_Minus
+    | B_Mult
+    | B_Div
+    | B_Assign
+    deriving Eq
+  
   data Expr =
       E_Var String
+    | E_UPrim UnaryPrim
+    | E_BPrim BinaryPrim
     | E_Const Constant
     | E_Location Integer
-    | E_Not Expr
-    | E_Ref Expr
-    | E_Deref Expr
-    | E_Eq Expr Expr
-    | E_Plus Expr Expr
-    | E_Minus Expr Expr
-    | E_Div Expr Expr
-    | E_Mult Expr Expr
-    | E_Assign Expr Expr
-    | E_Head Expr
-    | E_Tail Expr
     | E_Cons Expr Expr
     | E_ITE Expr Expr Expr
     | E_Seq Expr Expr
-    | E_Fst Expr
-    | E_Snd Expr
     | E_Pair Expr Expr
     | E_Let String Expr Expr
     | E_Letrec String Expr Expr

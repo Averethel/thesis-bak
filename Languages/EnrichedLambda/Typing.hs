@@ -28,70 +28,54 @@ module Languages.EnrichedLambda.Typing (type_of_expression) where
     tv <- fresh_type_var
     return $ T_List tv
   
+  type_of_unary_prim :: (MonadState InterpreterState m) => UnaryPrim -> m Type
+  type_of_unary_prim U_Not = return $ T_Arrow T_Bool T_Bool
+  type_of_unary_prim U_Ref = do
+    tv <- fresh_type_var
+    return $ T_Arrow tv (T_Ref tv)
+  type_of_unary_prim U_Deref = do
+    tv <- fresh_type_var
+    return $ T_Arrow (T_Ref tv) tv
+  type_of_unary_prim U_Fst = do
+    tv1 <- fresh_type_var
+    tv2 <- fresh_type_var
+    return $ T_Arrow (T_Pair tv1 tv2) tv1
+  type_of_unary_prim U_Snd = do
+    tv1 <- fresh_type_var
+    tv2 <- fresh_type_var
+    return $ T_Arrow (T_Pair tv1 tv2) tv2
+  type_of_unary_prim U_Head = do
+    tv <- fresh_type_var
+    return $ T_Arrow (T_List tv) tv
+  type_of_unary_prim U_Tail = do
+    tv <- fresh_type_var
+    return $ T_Arrow (T_List tv) (T_List tv)
+  type_of_unary_prim U_Empty = do
+    tv <- fresh_type_var
+    return $ T_Arrow (T_List tv) T_Bool
+  
+  type_of_binary_prim :: (MonadState InterpreterState m) => BinaryPrim -> m Type
+  type_of_binary_prim B_Eq = do
+    tv <- fresh_type_var
+    add_simple_constraint tv
+    return $ T_Arrow tv $ T_Arrow tv T_Bool
+  type_of_binary_prim B_Plus = return $ T_Arrow T_Int $ T_Arrow T_Int T_Int
+  type_of_binary_prim B_Minus = return $ T_Arrow T_Int $ T_Arrow T_Int T_Int
+  type_of_binary_prim B_Mult = return $ T_Arrow T_Int $ T_Arrow T_Int T_Int
+  type_of_binary_prim B_Div = return $ T_Arrow T_Int $ T_Arrow T_Int T_Int
+  type_of_binary_prim B_Assign = do
+    tv <- fresh_type_var
+    return $ T_Arrow (T_Ref tv) $ T_Arrow tv T_Unit
+  
   type_of_expression :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Type
   type_of_expression (E_Var v) = do
     env <- get_typing_env
     case env v of
       Nothing -> throwError $ unbound_variable v
       Just t  -> return t
+  type_of_expression (E_UPrim up) = type_of_unary_prim up
+  type_of_expression (E_BPrim bp) = type_of_binary_prim bp
   type_of_expression (E_Const c) = type_of_constant c
-  type_of_expression (E_Not e) = do
-    t <- type_of_expression e
-    add_constraint t T_Bool
-    return t
-  type_of_expression (E_Ref e) = do
-    t <- type_of_expression e
-    return $ T_Ref t
-  type_of_expression (E_Deref e) = do
-    t <- type_of_expression e
-    tv <- fresh_type_var
-    add_constraint t (T_Ref tv)
-    return tv
-  type_of_expression (E_Eq e1 e2) = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2
-    add_simple_constraint t1
-    add_constraint t1 t2
-    return T_Bool
-  type_of_expression (E_Plus e1 e2) = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2 
-    add_constraint t1 t2
-    add_constraint t1 T_Int
-    return T_Int
-  type_of_expression (E_Minus e1 e2) = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2 
-    add_constraint t1 t2
-    add_constraint t1 T_Int
-    return T_Int
-  type_of_expression (E_Div e1 e2) = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2 
-    add_constraint t1 t2
-    add_constraint t1 T_Int
-    return T_Int
-  type_of_expression (E_Mult e1 e2) = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2 
-    add_constraint t1 t2
-    add_constraint t1 T_Int
-    return T_Int
-  type_of_expression (E_Assign e1 e2) = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2
-    add_constraint t1 (T_Ref t2)
-    return T_Unit
-  type_of_expression (E_Head e) = do
-    t <- type_of_expression e
-    tv <- fresh_type_var
-    add_constraint t (T_List tv)
-    return tv
-  type_of_expression (E_Tail e) = do
-    t <- type_of_expression e
-    tv <- fresh_type_var
-    add_constraint t (T_List tv)
-    return t
   type_of_expression (E_Cons e1 e2) = do
     t1 <- type_of_expression e1
     t2 <- type_of_expression e2
@@ -109,18 +93,6 @@ module Languages.EnrichedLambda.Typing (type_of_expression) where
     t2 <- type_of_expression e2
     add_constraint t1 T_Unit -- maybe warinng only?
     return t2
-  type_of_expression (E_Fst e) = do
-    t <- type_of_expression e
-    tv1 <- fresh_type_var
-    tv2 <- fresh_type_var
-    add_constraint t $ T_Pair tv1 tv2
-    return tv1
-  type_of_expression (E_Snd e) = do
-    t <- type_of_expression e
-    tv1 <- fresh_type_var
-    tv2 <- fresh_type_var
-    add_constraint t $ T_Pair tv1 tv2
-    return tv2
   type_of_expression (E_Pair e1 e2) = do
     t1 <- type_of_expression e1
     t2 <- type_of_expression e2

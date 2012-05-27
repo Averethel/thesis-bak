@@ -8,30 +8,40 @@ module Languages.EnrichedLambda.PrettyPrint () where
     show C_Nil     = "[]"
     show C_Unit    = "()"
   
+  instance Show UnaryPrim where
+    show U_Not   = "~"
+    show U_Ref   = "!"
+    show U_Deref = "&"
+    show U_Fst   = "π1"
+    show U_Snd   = "π2"
+    show U_Head  = "head"
+    show U_Tail  = "tail"
+    show U_Empty = "empty?"
+  
+  instance Show BinaryPrim where
+    show B_Eq     = "=="
+    show B_Plus   = "+"
+    show B_Minus  = "-"
+    show B_Mult   = "*"
+    show B_Div    = "/"
+    show B_Assign = ":="
+  
   instance Show Expr where
     show (E_Var s)          = s
+    show (E_UPrim up)       = show up
+    show (E_BPrim bp)       = show bp
     show (E_Const c)        = show c
     show (E_Location n)     = "Mem@" ++ show n
-    show (E_Not e)          = "~(" ++ show e ++ ")"
-    show (E_Ref e)          = "!(" ++ show e ++ ")"
-    show (E_Deref e)        = "&(" ++ show e ++ ")"
-    show (E_Eq e1 e2)       = show e1 ++ " == " ++ show e2
-    show (E_Plus e1 e2)     = show e1 ++ " + " ++ show e2
-    show (E_Minus e1 e2)    = show e1 ++ " - " ++ show e2
-    show (E_Div e1 e2)      = show e1 ++ " / " ++ show e2
-    show (E_Mult e1 e2)     = show e1 ++ " * " ++ show e2
-    show (E_Assign e1 e2)   = show e1 ++ " := " ++ show e2
-    show (E_Head e)         = "head " ++ show e
-    show (E_Tail e)         = "tail " ++ show e
     show (E_Cons e1 e2)     = show e1 ++ " :: " ++ show e2
     show (E_ITE e1 e2 e3)   = "if ( " ++ show e1 ++ " ) then { " ++ show e2 ++ " } else { " ++ show e3 ++ " }"
     show (E_Seq e1 e2)      = show e1 ++ "; " ++ show e2
-    show (E_Fst e)          = "first " ++ show e
-    show (E_Snd e)          = "second " ++ show e
     show (E_Pair e1 e2)     = "( " ++ show e1 ++ ", " ++ show e2 ++  " )"
     show (E_Let v e1 e2)    = "let\n\t" ++ v ++ " = " ++ show e1 ++ "\nin\n\t" ++ show e2
     show (E_Letrec v e1 e2) = "letrec\n\t" ++ v ++ " = " ++ show e1 ++ "\nin\n\t" ++ show e2
-    show (E_Apply e1 e2)    = show e1 ++ " " ++ show e2
+    show (E_Apply e1 e2)    = 
+      case e1 of 
+        E_BPrim bp -> show e2 ++ " " ++ show bp
+        _          -> show e1 ++ " " ++ show e2
     show (E_Function s e)   = "λ" ++ s ++ "." ++ show e
     show E_MatchFailure     = "Match Failure"
     show Null               = "_"
@@ -46,4 +56,3 @@ module Languages.EnrichedLambda.PrettyPrint () where
     show (T_Arrow t1@(T_Arrow _ _) t2) = "( " ++ show t1 ++ " ) -> " ++ show t2
     show (T_Arrow t1 t2)               = show t1 ++ " -> " ++ show t2
     show (T_Ref t)                     = show t ++ " Ref"
-  
