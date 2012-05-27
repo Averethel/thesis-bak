@@ -2,7 +2,7 @@
   FlexibleContexts,
   NoMonomorphismRestriction
   #-}
-module Compiler.Translations where
+module Compiler.Translations.MLtoEL where
   import qualified Languages.MiniML.Syntax as ML
   import Languages.MiniML.PrettyPrint
   import qualified Languages.EnrichedLambda.Syntax as EL
@@ -120,13 +120,13 @@ module Compiler.Translations where
       | otherwise = EL.E_Function v (apply_subst s e1 e2)
     apply_subst _ _ e                    = e
   
-  -- program_to_expression :: ML.Program -> ML.Expr
-  -- program_to_expression [ML.IDF (ML.D_Let lb)]           = ML.E_Let lb (ML.E_Const ML.C_Unit)
-  -- program_to_expression [ML.IDF (ML.D_LetRec lrbs)]      = ML.E_LetRec lrbs (ML.E_Const ML.C_Unit)
-  -- program_to_expression [ML.IEX e]                       = e
-  -- program_to_expression ((ML.IDF (ML.D_Let lb)):is)      = ML.E_Let lb $ program_to_expression is
-  -- program_to_expression ((ML.IDF (ML.D_LetRec lrbs)):is) = ML.E_LetRec lrbs $ program_to_expression is
-  -- program_to_expression ((ML.IEX e):is)                  = ML.E_Let (ML.P_Val "it", e) $ program_to_expression is
-  -- 
-  -- program_to_enriched_lambda :: ML.Program -> EL.Expr
-  -- program_to_enriched_lambda = expression_to_enriched_lambda . program_to_expression
+  program_to_expression :: ML.Program -> ML.Expr
+  program_to_expression [ML.IDF (ML.D_Let lb)]           = ML.E_Let lb (ML.E_Const ML.C_Unit)
+  program_to_expression [ML.IDF (ML.D_LetRec lrbs)]      = ML.E_LetRec lrbs (ML.E_Const ML.C_Unit)
+  program_to_expression [ML.IEX e]                       = e
+  program_to_expression ((ML.IDF (ML.D_Let lb)):is)      = ML.E_Let lb $ program_to_expression is
+  program_to_expression ((ML.IDF (ML.D_LetRec lrbs)):is) = ML.E_LetRec lrbs $ program_to_expression is
+  program_to_expression ((ML.IEX e):is)                  = ML.E_Let (ML.P_Val "it", e) $ program_to_expression is
+  
+  program_to_enriched_lambda :: ML.Program -> EL.Expr
+  program_to_enriched_lambda = expression_to_enriched_lambda . program_to_expression
