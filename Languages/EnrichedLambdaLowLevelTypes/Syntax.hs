@@ -1,9 +1,6 @@
 module Languages.EnrichedLambdaLowLevelTypes.Syntax where
   data Tag = 
-      Tg_Int
-    | Tg_Pointer
-    | Tg_StaticPointer
-    | Tg_Nil
+      Tg_Nil
     | Tg_Cons
     | Tg_True
     | Tg_False
@@ -16,8 +13,9 @@ module Languages.EnrichedLambdaLowLevelTypes.Syntax where
     | S_Str Tag Integer [Struct]
     | S_Ptr Integer
     | S_StaticPtr Integer
+    | S_Int Integer
     | Null
-    deriving (Show, Eq)
+    deriving Eq
   
   data Prim = 
       P_AllocPair
@@ -36,7 +34,7 @@ module Languages.EnrichedLambdaLowLevelTypes.Syntax where
     | P_Mult
     | P_Div
     | P_Assign
-    deriving (Show, Eq)
+    deriving Eq
   
   data Expr = 
       E_Prim Prim
@@ -49,7 +47,7 @@ module Languages.EnrichedLambdaLowLevelTypes.Syntax where
     | E_Apply Expr Expr
     | E_Function String Expr
     | E_MatchFailure
-    deriving (Show, Eq)
+    deriving Eq
   
   data Type = 
       T_Int
@@ -60,4 +58,15 @@ module Languages.EnrichedLambdaLowLevelTypes.Syntax where
     | T_Ref Type
     | T_Pair Type Type
     | T_Arrow Type Type
-    deriving (Show, Eq)
+    deriving Eq
+  
+  is_binary :: Prim -> Bool
+  is_binary P_AllocPair = True
+  is_binary P_AllocList = True
+  is_binary P_Eq        = True
+  is_binary P_Plus      = True
+  is_binary P_Minus     = True
+  is_binary P_Mult      = True
+  is_binary P_Div       = True
+  is_binary P_Assign    = True
+  is_binary _           = False

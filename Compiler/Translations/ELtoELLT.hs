@@ -8,7 +8,7 @@ module Compiler.Translations.ELtoELLT where
   import qualified Languages.EnrichedLambdaLowLevelTypes.Syntax as LT
   
   contant_to_low_level_lambda :: EL.Constant -> LT.Struct
-  contant_to_low_level_lambda (EL.C_Int n) = LT.S_Str LT.Tg_Int n []
+  contant_to_low_level_lambda (EL.C_Int n) = LT.S_Int n
   contant_to_low_level_lambda EL.C_True    = LT.S_Str LT.Tg_True 0 []
   contant_to_low_level_lambda EL.C_False   = LT.S_Str LT.Tg_False 0 []
   contant_to_low_level_lambda EL.C_Nil     = LT.S_Str LT.Tg_Nil 0 []

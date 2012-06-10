@@ -16,17 +16,6 @@ module Languages.EnrichedLambdaLowLevelTypes.Eval where
   -- is_pointer (S_Ref _)       = True
   is_pointer _               = False
   
-  is_binary :: Prim -> Bool
-  is_binary P_AllocPair = True
-  is_binary P_AllocList = True
-  is_binary P_Eq        = True
-  is_binary P_Plus      = True
-  is_binary P_Minus     = True
-  is_binary P_Mult      = True
-  is_binary P_Div       = True
-  is_binary P_Assign    = True
-  is_binary _           = False
-  
   is_function :: Expr -> Bool
   is_function (E_Prim _)             = True
   is_function (E_Function _ _)       = True
@@ -37,7 +26,6 @@ module Languages.EnrichedLambdaLowLevelTypes.Eval where
   is_value (E_Prim _)                          = True
   is_value (E_Function _ _)                    = True
   is_value (E_Struct (S_Ref e))                = is_value e
-  is_value (E_Struct (S_Str Tg_Int _ _))       = True
   is_value (E_Struct (S_Str Tg_True _ _))      = True
   is_value (E_Struct (S_Str Tg_False _ _))     = True
   is_value (E_Struct (S_Str Tg_Unit _ _))      = True
@@ -46,6 +34,7 @@ module Languages.EnrichedLambdaLowLevelTypes.Eval where
   is_value (E_Struct (S_Str Tg_Pair _ [a, b])) = is_value (E_Struct a) && is_value (E_Struct b)
   is_value (E_Struct (S_Ptr _))                = True
   is_value (E_Struct (S_StaticPtr _))          = True
+  is_value (E_Struct (S_Int _))                = True
   is_value (E_Apply (E_Prim p) v)              = is_value v && is_binary p
   is_value _                                   = False
   
@@ -97,11 +86,11 @@ module Languages.EnrichedLambdaLowLevelTypes.Eval where
     | is_pointer s1 && is_pointer s2                                                    = return $ E_Apply (E_Apply (E_Prim P_Eq) (E_Apply (E_Prim P_Deref) e1)) $ E_Apply (E_Prim P_Deref) e2
     | s1 == s2                                                                          = return $ E_Struct $ S_Str Tg_True 0 []
     | otherwise                                                                         = return $ E_Struct $ S_Str Tg_False 0 []
-  eval_prim P_Plus [E_Struct (S_Str Tg_Int n _), E_Struct (S_Str Tg_Int m _)]           = return $ E_Struct $ S_Str Tg_Int (n+m) []
-  eval_prim P_Minus [E_Struct (S_Str Tg_Int n _), E_Struct (S_Str Tg_Int m _)]          = return $ E_Struct $ S_Str Tg_Int (n-m) []
-  eval_prim P_Mult [E_Struct (S_Str Tg_Int n _), E_Struct (S_Str Tg_Int m _)]           = return $ E_Struct $ S_Str Tg_Int (n*m) []
-  eval_prim P_Div [E_Struct (S_Str Tg_Int n _), E_Struct (S_Str Tg_Int m _)]
-    | m /= 0                                                                            = return $ E_Struct $ S_Str Tg_Int (n+m) []
+  eval_prim P_Plus [E_Struct (S_Int n), E_Struct (S_Int m)]                             = return $ E_Struct $ S_Int (n+m)
+  eval_prim P_Minus [E_Struct (S_Int n), E_Struct (S_Int m)]                            = return $ E_Struct $ S_Int (n-m)
+  eval_prim P_Mult [E_Struct (S_Int n), E_Struct (S_Int m)]                             = return $ E_Struct $ S_Int (n*m)
+  eval_prim P_Div [E_Struct (S_Int n), E_Struct (S_Int m)]
+    | m /= 0                                                                            = return $ E_Struct $ S_Int (n+m)
     | otherwise                                                                         = throwError division_by_0
   eval_prim P_Assign [E_Struct (S_Ptr n), e]                                            = do
     store_at Dynamic n e

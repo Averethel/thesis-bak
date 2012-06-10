@@ -4,6 +4,7 @@
 
 module Languages.EnrichedLambdaLowLevelTypes.Unification (unify, check_compare) where
   import Languages.EnrichedLambdaLowLevelTypes.Errors
+  import Languages.EnrichedLambdaLowLevelTypes.PrettyPrint
   import Languages.EnrichedLambdaLowLevelTypes.State
   import Languages.EnrichedLambdaLowLevelTypes.Syntax
   

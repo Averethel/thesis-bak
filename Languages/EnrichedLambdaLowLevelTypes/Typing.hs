@@ -4,17 +4,22 @@
 
 module Languages.EnrichedLambdaLowLevelTypes.Typing where
   import Languages.EnrichedLambdaLowLevelTypes.Errors
+  import Languages.EnrichedLambdaLowLevelTypes.PrettyPrint
   import Languages.EnrichedLambdaLowLevelTypes.State
   import Languages.EnrichedLambdaLowLevelTypes.Syntax
   
   import Control.Monad.Error
   import Control.Monad.State
   
+  deref :: Type -> Type
+  deref (T_Ref t) = t
+  deref t         = t
+  
   type_of_struct :: (MonadError String m, MonadState InterpreterState m) => Struct -> m Type
   type_of_struct (S_Ref e)                = do
     t <- type_of_expression e
     return $ T_Ref t
-  type_of_struct (S_Str Tg_Int _ _)       = return T_Int
+  type_of_struct (S_Int _)                = return T_Int
   type_of_struct (S_Str Tg_True _ [])     = return T_Bool
   type_of_struct (S_Str Tg_False _ [])    = return T_Bool
   type_of_struct (S_Str Tg_Unit _ [])     = return T_Unit
@@ -25,7 +30,21 @@ module Languages.EnrichedLambdaLowLevelTypes.Typing where
   type_of_struct (S_Str Tg_Nil _ _)       = do
     t <- fresh_type_var
     return $ T_List t
-  -- type_of_struct (S_Str Tg_Cons _ _)
+  type_of_struct (S_Str Tg_Cons _ [a, b]) = do
+    t1 <- type_of_struct a
+    t2 <- type_of_struct b
+    add_constraint (deref t2) $ T_List t1
+    return $ T_List t1
+  type_of_struct (S_Ptr a) = do
+    s <- get
+    let e = (dynamic_memory s) `at` a
+    t <- type_of_expression e
+    return $ T_Ref t
+  type_of_struct (S_StaticPtr a) = do
+    s <- get
+    let e = (static_memory s) `at` a
+    t <- type_of_expression e
+    return $ T_Ref t
   
   type_of_prim :: (MonadError String m, MonadState InterpreterState m) => Prim -> m Type
   type_of_prim P_AllocPair = do
