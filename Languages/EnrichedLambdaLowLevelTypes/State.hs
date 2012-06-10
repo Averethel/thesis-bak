@@ -71,7 +71,6 @@ module Languages.EnrichedLambdaLowLevelTypes.State where
                               static_memory       :: Memory,
                               dynamic_memory      :: Memory
                             }
-                            deriving Show
   
   empty_state :: InterpreterState
   empty_state = S (\_ -> Nothing) 0 [] [] id (\_ -> Nothing) (empty_mem 200) $ empty_mem 200
