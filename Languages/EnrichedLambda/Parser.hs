@@ -90,6 +90,7 @@ module Languages.EnrichedLambda.Parser (expressionParser) where
     uSnd   = const U_Snd <$> reserved "snd"
     uHead  = const U_Head <$> reserved "head"
     uTail  = const U_Tail <$> reserved "tail"
+    uEmpty = const U_Empty <$> reserved "empty?"
 
   binaryPrim :: Parser BinaryPrim
   binaryPrim = choice [bEq, bPlus, bMinus, bMult, bDiv, bAssgn] where
@@ -124,8 +125,8 @@ module Languages.EnrichedLambda.Parser (expressionParser) where
                 [Postfix (reservedOp ":=" *> pure (E_Apply (E_BPrim B_Assign)))]
                 ] preExpression
 
-  expression :: Parser Expr
-  expression = buildExpressionParser [
+  expressionFullApp :: Parser Expr
+  expressionFullApp = buildExpressionParser [
                 [Prefix (reserved "not" *> pure (E_Apply (E_UPrim U_Not)))],
                 [Prefix ((reserved "ref" <|> reservedOp "!") *> pure (E_Apply (E_UPrim U_Ref)))],
                 [Prefix (reservedOp "&" *> pure (E_Apply (E_UPrim U_Deref)))],
@@ -144,6 +145,9 @@ module Languages.EnrichedLambda.Parser (expressionParser) where
                 [Infix (reservedOp "::" *> pure E_Cons) AssocRight],
                 [Infix (reservedOp ";" *> pure E_Seq) AssocRight]
                 ] preExpression
+
+  expression :: Parser Expr
+  expression = choice [try expressionFullApp, expressionPartApp]
 
   runPp :: Parser a -> String -> Either ParseError a
   runPp p = parse (PTok.whiteSpace lang  >> p) ""
