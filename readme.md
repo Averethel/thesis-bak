@@ -16,7 +16,7 @@ Currently working on
   2. Other improvements
     * state monad in MiniML interpreter
     * use record for state in Enriched Lambda Calculus interpreter
-    * some renaming for consistency
+    * [x] some renaming for consistency
 
 Changelog
 =========
