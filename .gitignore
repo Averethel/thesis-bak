@@ -1,7 +1,6 @@
 .DS_Store
-copypasta
 TODO
+notes
 *.old
 *.mml
-Interpreters/MiniML/MiniML
 Tests.hs
