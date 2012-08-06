@@ -4,7 +4,7 @@ The idea is to create PCC framework for MiniML - subset of OCaml Light language.
 
 Current status
 ==============
-Implementing MiniML compiler to simpe asembly language.
+Implementing MiniML compiler to simple asembly language.
 
 Changelog
 =========
