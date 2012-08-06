@@ -18,6 +18,18 @@ Currently working on
         * use record for state in Enriched Lambda Calculus interpreter
         * some renaming for consistency
 
+Currently working on
+====================
+* Assembly language (see feature/languages/assembly)
+* Code refactoring  (see feature/refactoring)
+  1. Translation improvemets
+    * enforce unique functions / variable names
+    * move all definitions to the beginning of the program
+  2. Other improvements
+    * state monad in MiniML interpreter
+    * use record for state in Enriched Lambda Calculus interpreter
+    * some renaming for consistency
+
 Changelog
 =========
 *  6 VIII 2012 - [others]    Cleanup, introducing git flow, readme creation
