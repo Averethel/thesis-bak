@@ -29,7 +29,7 @@ module Languages.EnrichedLambda.Syntax where
     deriving Eq
   
   data Expr =
-      E_Var String
+      E_Val String
     | E_UPrim UnaryPrim
     | E_BPrim BinaryPrim
     | E_Const Constant

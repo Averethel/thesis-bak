@@ -12,13 +12,6 @@ module Languages.EnrichedLambda.Typing (type_of_expression) where
   import Control.Monad.State
   import Data.Maybe
   
-  extend_typing_env :: (MonadError String m, MonadState InterpreterState m) => [(String, Expr)] -> m ()
-  extend_typing_env []           = return ()
-  extend_typing_env ((vn, e):bs) = do
-    t <- type_of_expression e
-    extend_typing_env vn t
-    extend_typing_env bs
-  
   type_of_constant :: (MonadState InterpreterState m) => Constant -> m Type
   type_of_constant (C_Int _) = return T_Int
   type_of_constant C_True    = return T_Bool
@@ -68,7 +61,7 @@ module Languages.EnrichedLambda.Typing (type_of_expression) where
     return $ T_Arrow (T_Ref tv) $ T_Arrow tv T_Unit
   
   type_of_expression :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Type
-  type_of_expression (E_Var v) = do
+  type_of_expression (E_Val v) = do
     env <- get_typing_env
     case env v of
       Nothing -> throwError $ unbound_variable v

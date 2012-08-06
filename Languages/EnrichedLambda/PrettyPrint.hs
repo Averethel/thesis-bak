@@ -27,7 +27,7 @@ module Languages.EnrichedLambda.PrettyPrint () where
     show B_Assign = ":="
   
   instance Show Expr where
-    show (E_Var s)          = s
+    show (E_Val s)          = s
     show (E_UPrim up)       = show up
     show (E_BPrim bp)       = show bp
     show (E_Const c)        = show c

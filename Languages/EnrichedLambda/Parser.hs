@@ -102,8 +102,8 @@ module Languages.EnrichedLambda.Parser (expressionParser) where
     bAssgn = const B_Assign <$> reservedOp ":="
 
   preExpression :: Parser Expr
-  preExpression = choice [try $ parens $ expression, pVar, pUprim, pBprim, pConst, pITE, pList, pPair, pLet, pLetrec, pFun, pMF] where
-    pVar    = E_Var <$> identifier
+  preExpression = choice [try $ parens $ expression, pVal, pUprim, pBprim, pConst, pITE, pList, pPair, pLet, pLetrec, pFun, pMF] where
+    pVal    = E_Val <$> identifier
     pUprim  = E_UPrim <$> (angles $ unaryPrim)
     pBprim  = E_BPrim <$> (angles $ binaryPrim)
     pConst  = E_Const <$> constant

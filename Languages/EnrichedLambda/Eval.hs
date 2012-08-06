@@ -55,7 +55,7 @@ module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr) where
     return $ E_Const $ C_Unit
   
   eval_step_expr :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Expr
-  eval_step_expr (E_Var s) = do
+  eval_step_expr (E_Val s) = do
     env <- get_eval_env
     case env s of
       Nothing -> throwError $ unbound_variable s
