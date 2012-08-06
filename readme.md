@@ -10,11 +10,6 @@ Currently working on
 ====================
 * Assembly language (see feature/languages/assembly)
 * Code refactoring  (see feature/refactoring)
-
-Currently working on
-====================
-* Assembly language (see feature/languages/assembly)
-* Code refactoring  (see feature/refactoring)
     1. Translation improvemets
         * enforce unique functions / variable names
         * move all definitions to the beginning of the program
