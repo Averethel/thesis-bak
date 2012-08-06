@@ -6,6 +6,11 @@ Current status
 ==============
 Implementing MiniML compiler to simpe asembly language.
 
+Currently working on
+====================
+* Assembly language (see feature/languages/assembly)
+* Code refactoring  (see feature/refactoring)
+
 Changelog
 =========
 *  6 VIII 2012 - [others]    Cleanup, introducing git flow, readme creation
