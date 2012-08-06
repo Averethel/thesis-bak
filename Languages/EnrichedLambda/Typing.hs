@@ -16,7 +16,7 @@ module Languages.EnrichedLambda.Typing (type_of_expression) where
   extend_typing_env []           = return ()
   extend_typing_env ((vn, e):bs) = do
     t <- type_of_expression e
-    add_to_typing_env vn t
+    extend_typing_env vn t
     extend_typing_env bs
   
   type_of_constant :: (MonadState InterpreterState m) => Constant -> m Type
@@ -100,14 +100,14 @@ module Languages.EnrichedLambda.Typing (type_of_expression) where
   type_of_expression (E_Let v e1 e2) = do
     env <- get_typing_env
     t1 <- type_of_expression e1
-    add_to_typing_env v t1
+    extend_typing_env v t1
     t2 <- type_of_expression e2
     reset_typing_env env
     return t2
   type_of_expression (E_Letrec v e1 e2) = do
     env <- get_typing_env
     tv <- fresh_type_var
-    add_to_typing_env v tv
+    extend_typing_env v tv
     t1 <- type_of_expression e1
     add_constraint t1 tv
     t2 <- type_of_expression e2
@@ -122,7 +122,7 @@ module Languages.EnrichedLambda.Typing (type_of_expression) where
   type_of_expression (E_Function v e) = do
     env <- get_typing_env
     tv <- fresh_type_var
-    add_to_typing_env v tv
+    extend_typing_env v tv
     t <- type_of_expression e
     reset_typing_env env
     return (T_Arrow tv t)

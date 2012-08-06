@@ -43,8 +43,8 @@ module Languages.EnrichedLambda.Interpreter where
       f <- unify;
       check_compare;
       v <- eval_expr expr;
-      add_to_typing_env "it" t;
-      add_to_eval_env "it" v;
+      extend_typing_env "it" t;
+      extend_eval_env "it" v;
       return $ show v ++ " : " ++ show (f t) }
     `catchError`
       (\e -> return $ eval_error e expr)

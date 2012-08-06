@@ -63,8 +63,8 @@ module Languages.EnrichedLambda.State where
      put (e, n, cs, scs, f, v, m)
      return ()
   
-  add_to_typing_env :: MonadState InterpreterState m => String -> Type -> m ()
-  add_to_typing_env vn tp = do
+  extend_typing_env :: MonadState InterpreterState m => String -> Type -> m ()
+  extend_typing_env vn tp = do
     (env, n, cs, scs, f, v, m) <- get
     put (\x -> if x == vn then Just tp else env x, n, cs, scs, f, v, m)
     return ()
@@ -80,8 +80,8 @@ module Languages.EnrichedLambda.State where
      put (v, n, cs, scs, f, e, m)
      return ()
   
-  add_to_eval_env :: MonadState InterpreterState m => String -> Expr -> m ()
-  add_to_eval_env vn ex = do
+  extend_eval_env :: MonadState InterpreterState m => String -> Expr -> m ()
+  extend_eval_env vn ex = do
     (v, n, cs, scs, f, env, m) <- get
     put (v, n, cs, scs, f, \x -> if x == vn then Just ex else env x, m)
     return ()
