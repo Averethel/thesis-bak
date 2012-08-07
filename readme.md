@@ -17,6 +17,7 @@ Currently working on
         * state monad in MiniML interpreter
         * use record for state in Enriched Lambda Calculus interpreter
         * [x] some renaming for consistency
+        * add definitions to intermediate languages
 
 Changelog
 =========
