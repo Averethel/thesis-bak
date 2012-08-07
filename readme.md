@@ -11,6 +11,7 @@ Currently working on
 * Assembly language (see feature/languages/assembly)
 * Code refactoring  (see feature/refactoring)
     1. Translation improvemets
+        * update translations to handle definitions
         * enforce unique functions / variable names
         * move all definitions to the beginning of the program
     2. Other improvements

@@ -2,7 +2,7 @@
   FlexibleContexts
   #-}
 
-module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr) where
+module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr, eval_program) where
   import Languages.EnrichedLambda.Errors
   import Languages.EnrichedLambda.Syntax
   import Languages.EnrichedLambda.State
@@ -115,3 +115,26 @@ module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr) where
     | otherwise  = do 
       e' <- eval_step_expr e
       eval_expr e'
+
+  eval_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
+  eval_definition (D_Let v e)    = do
+    e' <- eval_expr e
+    extend_eval_env v e'
+  eval_definition (D_Letrec v e) = do
+    extend_eval_env v e
+
+  eval_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
+  eval_instruction (IDF df) = eval_definition df
+  eval_instruction (IEX ex) = do
+    e <- eval_expr ex
+    extend_eval_env "it" e
+
+  eval_program :: (MonadError String m, MonadState InterpreterState m) => Program -> m Expr
+  eval_program []     = do
+    env <- get_eval_env
+    case env "it" of
+      Nothing -> return Null
+      Just ex -> return ex
+  eval_program (i:is) = do
+    eval_instruction i
+    eval_program is

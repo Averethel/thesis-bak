@@ -14,6 +14,8 @@ module Languages.EnrichedLambda.Interpreter where
   import Control.Monad.State
   import Data.Array
   import System.Console.Haskeline
+  import System.IO.Error
+  import Text.Parsec.String (parseFromFile)
   
   get_mem :: MonadState InterpreterState m => m [(Integer, Expr)]
   get_mem = do
@@ -49,6 +51,17 @@ module Languages.EnrichedLambda.Interpreter where
     `catchError`
       (\e -> return $ eval_error e expr)
   
+  evaluate_program :: (MonadState InterpreterState m, MonadError String m) => Program -> m String
+  evaluate_program prog = do {
+      type_of_program prog;
+      f <- unify;
+      check_compare;
+      v <- eval_program prog;
+      t <- type_of_expression v;
+      return $ show v ++ " : " ++ show (f t) }
+    `catchError`
+      (\e -> return $ eval_error e prog)
+
   eval_loop :: MonadException m => InterpreterState -> InputT m ()
   eval_loop state = do
     c <- getInputLine ":> "
@@ -69,6 +82,19 @@ module Languages.EnrichedLambda.Interpreter where
             (Right (m, s)) <- runErrorT $ runStateT (get_type expr) state
             outputStrLn m
             eval_loop s
+      Just (':':'l':' ':file) -> do
+        res <- liftIO $ try $ parseFromFile program file
+        case res of
+          Left err           -> do
+            outputStrLn $ show err
+            eval_loop state
+          Right (Left err)   -> do
+            outputStrLn $ parse_error err file
+            eval_loop state
+          Right (Right prog) -> do
+            (Right (m, s)) <- runErrorT $ runStateT (evaluate_program prog) state
+            outputStrLn m
+            eval_loop s  
       Just expr               -> do
         case expressionParser expr of
           Left err   -> do

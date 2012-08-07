@@ -45,6 +45,16 @@ module Languages.EnrichedLambda.Syntax where
     | E_MatchFailure
     | Null -- for memory emptiness
     deriving Eq
+
+  data Definition =
+      D_Let String Expr
+    | D_Letrec String Expr
+
+  data Instruction =
+      IDF Definition
+    | IEX Expr
+
+  type Program = [Instruction]
   
   data Type =
       T_Var String
