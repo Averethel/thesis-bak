@@ -6,6 +6,7 @@ module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr, eval_program) w
   import Languages.EnrichedLambda.Errors
   import Languages.EnrichedLambda.Syntax
   import Languages.EnrichedLambda.State
+  import Languages.EnrichedLambda.PrettyPrint
   
   import Control.Monad.Error
   import Control.Monad.State
@@ -54,6 +55,12 @@ module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr, eval_program) w
     update_mem a v
     return $ E_Const $ C_Unit
   
+  recfun :: (MonadState InterpreterState m) => [(String, Expr)] -> m ()
+  recfun []          = return ()
+  recfun ((v, e):bs) = do
+    extend_eval_env v e
+    recfun bs
+
   eval_step_expr :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Expr
   eval_step_expr (E_Val s) = do
     env <- get_eval_env
@@ -92,8 +99,8 @@ module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr, eval_program) w
     | otherwise = do
       e1' <- eval_step_expr e1
       return (E_Let vn e1' e2)
-  eval_step_expr (E_Letrec vn e1 e2) = do
-    extend_eval_env vn e1
+  eval_step_expr (E_Letrec lrbs e2) = do
+    recfun lrbs
     return e2
   eval_step_expr (E_Apply e1 e2)
     | is_value e1 && (not . is_value $ e2) = do
@@ -120,8 +127,7 @@ module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr, eval_program) w
   eval_definition (D_Let v e)    = do
     e' <- eval_expr e
     extend_eval_env v e'
-  eval_definition (D_Letrec v e) = do
-    extend_eval_env v e
+  eval_definition (D_Letrec lrbs) = recfun lrbs
 
   eval_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
   eval_instruction (IDF df) = eval_definition df

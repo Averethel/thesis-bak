@@ -59,7 +59,19 @@ module Languages.EnrichedLambda.Typing (type_of_expression, type_of_program) whe
   type_of_binary_prim B_Assign = do
     tv <- fresh_type_var
     return $ T_Arrow (T_Ref tv) $ T_Arrow tv T_Unit
-  
+
+  recfun :: (MonadError String m, MonadState InterpreterState m) => [(String, Expr)] -> m ()
+  recfun lrbs = recfun' lrbs [] where
+    recfun' []          []           = return ()
+    recfun' []          ((tv, e):cs) = do
+      t <- type_of_expression e
+      add_constraint tv t
+      recfun' [] cs
+    recfun' ((v, e):bs) cs           = do
+      tv <- fresh_type_var
+      extend_typing_env v tv
+      recfun' bs ((tv, e):cs)
+
   type_of_expression :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Type
   type_of_expression (E_Val v) = do
     env <- get_typing_env
@@ -97,12 +109,9 @@ module Languages.EnrichedLambda.Typing (type_of_expression, type_of_program) whe
     t2 <- type_of_expression e2
     reset_typing_env env
     return t2
-  type_of_expression (E_Letrec v e1 e2) = do
+  type_of_expression (E_Letrec lrbs e2) = do
     env <- get_typing_env
-    tv <- fresh_type_var
-    extend_typing_env v tv
-    t1 <- type_of_expression e1
-    add_constraint t1 tv
+    recfun lrbs
     t2 <- type_of_expression e2
     reset_typing_env env
     return t2
@@ -123,21 +132,17 @@ module Languages.EnrichedLambda.Typing (type_of_expression, type_of_program) whe
     tv <- fresh_type_var
     return tv
 
-  type_of_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m Type
-  type_of_definition (D_Let v e)    = type_of_expression e
-  type_of_definition (D_Letrec v e) = do
-    tv <- fresh_type_var
-    extend_typing_env v tv
+  type_of_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
+  type_of_definition (D_Let v e)     = do
     t <- type_of_expression e
-    add_constraint t tv
-    return t
+    extend_typing_env v t
+  type_of_definition (D_Letrec lrbs) = recfun lrbs
 
-  type_of_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m Type
+  type_of_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
   type_of_instruction (IDF df) = type_of_definition df
   type_of_instruction (IEX ex) = do
     t <- type_of_expression ex
     extend_typing_env "it" t
-    return t
 
   type_of_program :: (MonadError String m, MonadState InterpreterState m) => Program -> m ()
   type_of_program []     = return ()

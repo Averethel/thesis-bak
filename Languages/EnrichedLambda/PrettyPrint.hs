@@ -1,5 +1,8 @@
 module Languages.EnrichedLambda.PrettyPrint () where
   import Languages.EnrichedLambda.Syntax
+
+  showBindings []            = []
+  showBindings ((v, e):bs) = "\n\t" ++ v ++ " = function " ++ show e ++ showBindings bs
   
   instance Show Constant where
     show (C_Int n) = show n
@@ -37,7 +40,7 @@ module Languages.EnrichedLambda.PrettyPrint () where
     show (E_Seq e1 e2)      = show e1 ++ "; " ++ show e2
     show (E_Pair e1 e2)     = "( " ++ show e1 ++ ", " ++ show e2 ++  " )"
     show (E_Let v e1 e2)    = "let\n\t" ++ v ++ " = " ++ show e1 ++ "\nin\n\t" ++ show e2
-    show (E_Letrec v e1 e2) = "letrec\n\t" ++ v ++ " = " ++ show e1 ++ "\nin\n\t" ++ show e2
+    show (E_Letrec lrbs e2) = "letrec\n\t" ++ showBindings lrbs ++ "\nin\n\t" ++ show e2
     show (E_Apply e1 e2)    = 
       case e1 of 
         E_BPrim bp -> show e2 ++ " " ++ show bp
@@ -59,7 +62,7 @@ module Languages.EnrichedLambda.PrettyPrint () where
 
   instance Show Definition where 
     show (D_Let v e)    = "let " ++ v ++ " = " ++ show e
-    show (D_Letrec v e) = "letrec " ++ v ++ " = " ++ show e  
+    show (D_Letrec lrbs) = "letrec " ++ showBindings lrbs
 
   instance Show Instruction where
     show (IDF df) = show df

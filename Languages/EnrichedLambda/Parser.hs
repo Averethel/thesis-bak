@@ -81,6 +81,20 @@ module Languages.EnrichedLambda.Parser (expressionParser, program) where
     pNil   = const C_Nil <$> reservedOp "[]"
     pUnit  = const C_Unit <$> reservedOp "()"
 
+  preLetRec :: Parser (String, Expr)
+  preLetRec = do 
+                reserved "function"
+                v <- identifier
+                reservedOp "->"
+                e <- expression
+                return (v, e)
+  
+  letrecBindings :: Parser [(String, Expr)]
+  letrecBindings = do 
+                    d <- preLetRec
+                    ds <- many (reserved "and" *> preLetRec)
+                    return $ d:ds
+
   unaryPrim :: Parser UnaryPrim
   unaryPrim = choice [uNot, uRef, uDeref, uFst, uSnd, uHead, uTail] where
     uNot   = const U_Not <$> reserved "not"
@@ -111,7 +125,7 @@ module Languages.EnrichedLambda.Parser (expressionParser, program) where
     pList   = foldr E_Cons (E_Const C_Nil) <$> (brackets . commaSep $ expression)
     pPair   = E_Pair <$> (reservedOp "(" *> expression) <*> (reservedOp "," *> expression <* reservedOp ")")
     pLet    = E_Let <$> (reserved "let" *> identifier) <*> (reservedOp "=" *> expression) <*> (reserved "in" *> expression)
-    pLetrec = E_Letrec <$> (reserved "letrec" *> identifier) <*> (reservedOp "=" *> expression) <*> (reserved "in" *> expression)
+    pLetrec = E_Letrec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)
     pFun    = E_Function <$> (reserved "function" *> identifier) <*> (reservedOp "->" *> expression)
     pMF     = const E_MatchFailure <$> reserved "MatchFailure"
 
@@ -152,7 +166,7 @@ module Languages.EnrichedLambda.Parser (expressionParser, program) where
   definition :: Parser Definition
   definition = choice [dLet, dLetrec] where
     dLet    = D_Let <$> (reserved "let" *> identifier) <*> (reservedOp "=" *> expression)
-    dLetrec = D_Letrec <$> (reserved "letrec" *> identifier) <*> (reservedOp "=" *> expression)
+    dLetrec = D_Letrec <$> (reserved "letrec" *> letrecBindings)
 
   instruction :: Parser Instruction
   instruction = choice [try iex, idf] where
