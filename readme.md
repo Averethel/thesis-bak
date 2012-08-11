@@ -11,14 +11,17 @@ Currently working on
 * Assembly language (see feature/languages/assembly)
 * Code refactoring  (see feature/refactoring)
     1. Translation improvemets
-        * update translations to handle definitions
         * enforce unique functions / variable names
+        * update translations to handle definitions
         * move all definitions to the beginning of the program
     2. Other improvements
         * state monad in MiniML interpreter
         * use record for state in Enriched Lambda Calculus interpreter
-        * [x] some renaming for consistency
-        * add definitions to intermediate languages
+        * ~~~some renaming for consistency~~~
+        * ~~~add definitions to Enriched Lambda Calculus~~~
+        * add definitions to Enriched Lambda Calculus With Low Level Types
+        * ~~~allow mutually recursive letrec in Enriched Lambda Calculus~~~
+        * allow mutually recursive letrec in Enriched Lambda Calculus With Low Level Types
 
 Changelog
 =========
