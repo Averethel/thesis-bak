@@ -12,20 +12,27 @@ module Compiler.Translations.MLtoEL.UniqueNamesEnforcer (rename_to_unique, Compi
   empty_counter :: Counter
   empty_counter _ = 0
 
+  empty_max :: Counter
+  empty_max _ = 1
+
   inc_by :: Integer -> Counter -> ValueName -> Counter
   inc_by i c m = \x -> if x == m then c x + i else c x
 
   inc :: Counter -> ValueName -> Counter
   inc = inc_by 1
 
+  set :: Counter -> ValueName -> Integer -> Counter
+  set c m v = \x -> if x == m then v else c x
+
   data EnforcerState = 
     S {
         counter :: Counter,
-        history :: [Counter]
+        history :: [Counter],
+        maxs    :: Counter
       }
 
   empty_state :: EnforcerState
-  empty_state = S { counter = empty_counter, history = [] }
+  empty_state = S { counter = empty_counter, history = [], maxs = empty_max }
 
   backup :: (MonadState EnforcerState m) => m ()
   backup = do
@@ -36,13 +43,14 @@ module Compiler.Translations.MLtoEL.UniqueNamesEnforcer (rename_to_unique, Compi
   restore = do
     s <- get
     let (c:cs) = history s
-    put $ S { counter = c, history = cs }
+    put $ s { counter = c, history = cs }
 
   increment :: (MonadState EnforcerState m) => ValueName -> m ()
   increment v = do
     s <- get
     let c = counter s
-    put $ s { counter = c `inc` v }
+    let m = maxs s
+    put $ s { counter = set c v $ m v, maxs = m `inc` v }
 
   value :: (MonadState EnforcerState m) => ValueName -> m ValueName
   value v = do
