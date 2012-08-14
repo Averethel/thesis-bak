@@ -2,7 +2,7 @@
   FlexibleContexts
   #-}
 
-module Compiler.Translations.MLtoEL.UniqueNamesEnforcer (rename_to_unique, Compiler.Translations.MLtoEL.UniqueNamesEnforcer.empty_state) where
+module Compiler.Translations.MLtoEL.UniqueNamesEnforcer (enforce_unique_names) where
   import Languages.MiniML.Syntax
 
   import Control.Monad.State
@@ -177,3 +177,6 @@ module Compiler.Translations.MLtoEL.UniqueNamesEnforcer (rename_to_unique, Compi
     i'  <- rename_to_unique_instruction i
     is' <- rename_to_unique is
     return $ i':is'
+
+  enforce_unique_names :: Program -> Program
+  enforce_unique_names prog = fst $ runState (rename_to_unique prog) Compiler.Translations.MLtoEL.UniqueNamesEnforcer.empty_state
