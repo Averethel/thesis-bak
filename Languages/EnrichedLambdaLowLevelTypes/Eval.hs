@@ -49,6 +49,12 @@ module Languages.EnrichedLambdaLowLevelTypes.Eval where
       alloc_dynamic_mem s = do
         ptr <- store Dynamic s
         return $ S_Ptr ptr
+
+  recfun :: (MonadState InterpreterState m) => [LetRecBinding] -> m ()
+  recfun []          = return ()
+  recfun ((v, b):bs) = do
+    extend_eval_env v b
+    recfun bs
   
   eval_prim :: (MonadError String m, MonadState InterpreterState m) => Prim -> [Expr] -> m Expr
   eval_prim P_AllocPair [e1, e2]                                                        = do
@@ -123,8 +129,8 @@ module Languages.EnrichedLambdaLowLevelTypes.Eval where
     | otherwise                                              = do
       extend_eval_env s e1
       return e2
-  eval_step_expr (E_LetRec s e1 e2)                          = do
-    extend_eval_env s e1
+  eval_step_expr (E_LetRec lrbs e2)                          = do
+    recfun lrbs
     return e2
   eval_step_expr (E_Apply e1 e2)
     | not . is_value $ e1                                    = do

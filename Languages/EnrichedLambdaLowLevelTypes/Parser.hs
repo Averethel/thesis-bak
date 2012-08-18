@@ -82,6 +82,20 @@ module Languages.EnrichedLambdaLowLevelTypes.Parser where
     pNil   = const (S_Str Tg_Nil 0 []) <$> reservedOp "[]"
     pUnit  = const (S_Str Tg_Unit 0 []) <$> reservedOp "()"
 
+  preLetRec :: Parser (String, Expr)
+  preLetRec = do 
+                v <- identifier
+                reservedOp "->"
+                e <- expression
+                return (v, e)
+  
+  letrecBindings :: Parser [(String, Expr)]
+  letrecBindings = do 
+                    d <- preLetRec
+                    ds <- many (reserved "and" *> preLetRec)
+                    return $ d:ds
+
+
   prim :: Parser Prim
   prim = choice [uNot, uRef, uDeref, uFst, uSnd, uHead, uTail, bEq, bPlus, bMinus, bMult, bDiv, bAssgn, bMkList, bMkPair] where
     uNot    = const P_Not <$> reserved "not"
@@ -110,7 +124,7 @@ module Languages.EnrichedLambdaLowLevelTypes.Parser where
     pList   = foldr (\a b -> E_Apply (E_Apply (E_Prim P_AllocList) a) b) (E_Struct (S_Str Tg_Nil 0 [])) <$> (brackets . commaSep $ expression)
     pPair   = (\a b -> E_Apply (E_Apply (E_Prim P_AllocPair) a) b) <$> (reservedOp "(" *> expression) <*> (reservedOp "," *> expression <* reservedOp ")")
     pLet    = E_Let <$> (reserved "let" *> identifier) <*> (reservedOp "=" *> expression) <*> (reserved "in" *> expression)
-    pLetRec = E_LetRec <$> (reserved "letrec" *> identifier) <*> (reservedOp "=" *> expression) <*> (reserved "in" *> expression)
+    pLetRec = E_LetRec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)
     pFun    = E_Function <$> (reserved "function" *> identifier) <*> (reservedOp "->" *> expression)
     pMF     = const E_MatchFailure <$> reserved "MatchFailure"
 

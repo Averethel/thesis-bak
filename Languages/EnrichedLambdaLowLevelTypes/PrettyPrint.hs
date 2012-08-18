@@ -1,6 +1,9 @@
 module Languages.EnrichedLambdaLowLevelTypes.PrettyPrint () where
   import Languages.EnrichedLambdaLowLevelTypes.Syntax
   
+  showBindings []           = []
+  showBindings ((vn, e):bs) = "\n\t" ++ vn ++ " = " ++ show e ++ showBindings bs
+
   instance Show Struct where
     show (S_Ref e)                = "[ " ++ show e ++ " ]"
     show (S_Str Tg_True _ _)      = "True"
@@ -39,7 +42,7 @@ module Languages.EnrichedLambdaLowLevelTypes.PrettyPrint () where
     show (E_ITE e1 e2 e3)   = "if ( " ++ show e1 ++ " ) then { " ++ show e2 ++ " } else { " ++ show e3 ++ " }"
     show (E_Seq e1 e2)      = show e1 ++ "; " ++ show e2
     show (E_Let s e1 e2)    = "let\n\t" ++ s ++ " = " ++ show e1 ++ "\nin\n\t" ++ show e2
-    show (E_LetRec s e1 e2) = "letrec\n\t" ++ s ++ " = " ++ show e1 ++ "\nin\n\t" ++ show e2
+    show (E_LetRec bs e)    = "letrec\n\t" ++ (showBindings bs) ++ "\nin\n\t" ++ show e
     show (E_Apply e1@(E_Prim p) e2)
       | is_binary p         = show e2 ++ " " ++ show e1
       | otherwise           = show e1 ++ " " ++ show e2

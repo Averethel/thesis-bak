@@ -36,6 +36,8 @@ module Languages.EnrichedLambdaLowLevelTypes.Syntax where
     | P_Assign
     deriving Eq
   
+  type LetRecBinding = (String, Expr)
+
   data Expr = 
       E_Prim Prim
     | E_Val String
@@ -43,7 +45,7 @@ module Languages.EnrichedLambdaLowLevelTypes.Syntax where
     | E_ITE Expr Expr Expr
     | E_Seq Expr Expr
     | E_Let String Expr Expr
-    | E_LetRec String Expr Expr
+    | E_LetRec [LetRecBinding] Expr
     | E_Apply Expr Expr
     | E_Function String Expr
     | E_MatchFailure

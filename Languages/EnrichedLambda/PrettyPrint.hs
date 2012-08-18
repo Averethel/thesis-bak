@@ -2,7 +2,7 @@ module Languages.EnrichedLambda.PrettyPrint () where
   import Languages.EnrichedLambda.Syntax
 
   showBindings []            = []
-  showBindings ((v, e):bs) = "\n\t" ++ v ++ " = function " ++ show e ++ showBindings bs
+  showBindings ((v, e):bs) = "\n\t" ++ v ++ " = " ++ show e ++ showBindings bs
   
   instance Show Constant where
     show (C_Int n) = show n

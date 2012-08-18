@@ -83,7 +83,6 @@ module Languages.EnrichedLambda.Parser (inputParser, expressionParser, program) 
 
   preLetRec :: Parser (String, Expr)
   preLetRec = do 
-                reserved "function"
                 v <- identifier
                 reservedOp "->"
                 e <- expression
