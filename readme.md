@@ -6,10 +6,6 @@ Current status
 ==============
 Implementing MiniML compiler to simple asembly language.
 
-Currently working on
-====================
-* Graph Code Language (see feature/languages/graph-code)
-
 Changelog
 =========
 * 18 VIII 2012
