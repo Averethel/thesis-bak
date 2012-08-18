@@ -17,7 +17,7 @@ Currently working on
         * move all definitions to the beginning of the program
     2. Other improvements
         * ~~state monad in MiniML interpreter~~
-        * use record for state in Enriched Lambda Calculus interpreter
+        * ~~use record for state in Enriched Lambda Calculus interpreter~~
         * ~~some renaming for consistency~~
         * ~~add definitions to Enriched Lambda Calculus~~
         * add definitions to Enriched Lambda Calculus With Low Level Types
@@ -26,6 +26,7 @@ Currently working on
 
 Changelog
 =========
+* 18 VIII 2012 - [Others]    Enriched Lambda Calculus interpreter now uses record as sate
 * 18 VIII 2012 - [Languages] MiniML interpreter reimplemented using monads
 * 15 VIII 2012 - [Compiler]  Finished transaltion from MiniML to Enriched Lambda Calculus
 * 11 VIII 2012 - [Compiler]  Enforcing unique variable naming
