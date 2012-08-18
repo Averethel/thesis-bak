@@ -16,7 +16,7 @@ Currently working on
         * update Enriched Lambda Calculus -> Enriched Lambda Calculus With Low Level Types translation to handle definitions
         * move all definitions to the beginning of the program
     2. Other improvements
-        * state monad in MiniML interpreter
+        * ~~state monad in MiniML interpreter~~
         * use record for state in Enriched Lambda Calculus interpreter
         * ~~some renaming for consistency~~
         * ~~add definitions to Enriched Lambda Calculus~~
@@ -26,6 +26,7 @@ Currently working on
 
 Changelog
 =========
+* 18 VIII 2012 - [Languages] MiniML interpreter reimplemented using monads
 * 15 VIII 2012 - [Compiler]  Finished transaltion from MiniML to Enriched Lambda Calculus
 * 11 VIII 2012 - [Compiler]  Enforcing unique variable naming
 * 11 VIII 2012 - [Languages] Mutually recursive letrec in Enriched Lambda Calculus
