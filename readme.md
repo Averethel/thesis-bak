@@ -4,7 +4,11 @@ The idea is to create PCC framework for MiniML - subset of OCaml Light language.
 
 Current status
 ==============
-Implementing MiniML compiler to simple asembly language.
+Implementing MiniML compiler to ZINC bytecode
+
+Currently working on
+====================
+* Implementing Graph Code language (see feature/languages/graph-code)
 
 Changelog
 =========
