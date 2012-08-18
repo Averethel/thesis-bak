@@ -58,6 +58,7 @@ module Languages.MiniML.Syntax where
     | E_Function [Binding]
     | E_Let Binding Expr
     | E_LetRec [LetRecBinding] Expr
+    | Null -- for memory emptiness
     deriving Eq
 
   data Definition =
@@ -92,18 +93,3 @@ module Languages.MiniML.Syntax where
     | TE_Tuple    [TypeExpr]
     | TE_Constr   [TypeExpr] TypeConstr
     deriving Eq
-
-  type Env = [(ValueName, TypeExpr)]
-
-  type EvalEnv = [(ValueName, Expr)]
-
-  type Mem = [Expr]
-
-  type Constraints = [(TypeExpr, TypeExpr)]
-
-  type SimpleConstraints = [TypeExpr]
-
-  type InterpreterState = ((Env, Constraints, SimpleConstraints, [TypeVar]), (EvalEnv, Mem))
-
-  empty_state :: InterpreterState
-  empty_state = (([], [], [], []), ([], []))
