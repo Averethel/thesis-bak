@@ -20,7 +20,7 @@ Currently working on
         * ~~use record for state in Enriched Lambda Calculus interpreter~~
         * ~~some renaming for consistency~~
         * ~~add definitions to Enriched Lambda Calculus~~
-        * add definitions to Enriched Lambda Calculus With Low Level Types
+        * ~~add definitions to Enriched Lambda Calculus With Low Level Types~~
         * ~~allow mutually recursive letrec in Enriched Lambda Calculus~~
         * ~~allow mutually recursive letrec in Enriched Lambda Calculus With Low Level Types~~
 
