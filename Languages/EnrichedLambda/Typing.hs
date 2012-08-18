@@ -109,7 +109,7 @@ module Languages.EnrichedLambda.Typing (type_of_expression, type_of_program) whe
     t2 <- type_of_expression e2
     reset_typing_env env
     return t2
-  type_of_expression (E_Letrec lrbs e2) = do
+  type_of_expression (E_LetRec lrbs e2) = do
     env <- get_typing_env
     recfun lrbs
     t2 <- type_of_expression e2
@@ -136,7 +136,7 @@ module Languages.EnrichedLambda.Typing (type_of_expression, type_of_program) whe
   type_of_definition (D_Let v e)     = do
     t <- type_of_expression e
     extend_typing_env v t
-  type_of_definition (D_Letrec lrbs) = recfun lrbs
+  type_of_definition (D_LetRec lrbs) = recfun lrbs
 
   type_of_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
   type_of_instruction (IDF df) = type_of_definition df

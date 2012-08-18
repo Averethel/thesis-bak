@@ -123,7 +123,7 @@ module Languages.EnrichedLambdaLowLevelTypes.Eval where
     | otherwise                                              = do
       extend_eval_env s e1
       return e2
-  eval_step_expr (E_Letrec s e1 e2)                          = do
+  eval_step_expr (E_LetRec s e1 e2)                          = do
     extend_eval_env s e1
     return e2
   eval_step_expr (E_Apply e1 e2)

@@ -99,7 +99,7 @@ module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr, eval_program) w
     | otherwise = do
       e1' <- eval_step_expr e1
       return (E_Let vn e1' e2)
-  eval_step_expr (E_Letrec lrbs e2) = do
+  eval_step_expr (E_LetRec lrbs e2) = do
     recfun lrbs
     return e2
   eval_step_expr (E_Apply e1 e2)
@@ -127,7 +127,7 @@ module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr, eval_program) w
   eval_definition (D_Let v e)    = do
     e' <- eval_expr e
     extend_eval_env v e'
-  eval_definition (D_Letrec lrbs) = recfun lrbs
+  eval_definition (D_LetRec lrbs) = recfun lrbs
 
   eval_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
   eval_instruction (IDF df) = eval_definition df

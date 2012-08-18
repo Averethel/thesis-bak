@@ -102,7 +102,7 @@ module Languages.EnrichedLambdaLowLevelTypes.Parser where
     bMkPair = const P_AllocList <$> reserved "mkList"
   
   preExpression :: Parser Expr
-  preExpression = choice [try $ parens $ expression, pVar, pPrim, pStruct, pITE, pList, pPair, pLet, pLetrec, pFun, pMF] where
+  preExpression = choice [try $ parens $ expression, pVar, pPrim, pStruct, pITE, pList, pPair, pLet, pLetRec, pFun, pMF] where
     pVar    = E_Val <$> identifier
     pPrim   = E_Prim <$> (angles $ prim)
     pStruct = E_Struct <$> struct
@@ -110,7 +110,7 @@ module Languages.EnrichedLambdaLowLevelTypes.Parser where
     pList   = foldr (\a b -> E_Apply (E_Apply (E_Prim P_AllocList) a) b) (E_Struct (S_Str Tg_Nil 0 [])) <$> (brackets . commaSep $ expression)
     pPair   = (\a b -> E_Apply (E_Apply (E_Prim P_AllocPair) a) b) <$> (reservedOp "(" *> expression) <*> (reservedOp "," *> expression <* reservedOp ")")
     pLet    = E_Let <$> (reserved "let" *> identifier) <*> (reservedOp "=" *> expression) <*> (reserved "in" *> expression)
-    pLetrec = E_Letrec <$> (reserved "letrec" *> identifier) <*> (reservedOp "=" *> expression) <*> (reserved "in" *> expression)
+    pLetRec = E_LetRec <$> (reserved "letrec" *> identifier) <*> (reservedOp "=" *> expression) <*> (reserved "in" *> expression)
     pFun    = E_Function <$> (reserved "function" *> identifier) <*> (reservedOp "->" *> expression)
     pMF     = const E_MatchFailure <$> reserved "MatchFailure"
 

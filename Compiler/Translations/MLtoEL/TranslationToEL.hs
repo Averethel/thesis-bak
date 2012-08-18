@@ -185,7 +185,7 @@ module Compiler.Translations.MLtoEL.TranslationToEL (program_to_enriched_lambda)
   expression_to_enriched_lambda (ML.E_LetRec lrbs e)  = do
     lrbs' <- bindings_to_enriched_lambda lrbs
     e'    <- expression_to_enriched_lambda e
-    return $ EL.E_Letrec lrbs' e'
+    return $ EL.E_LetRec lrbs' e'
 
   definition_to_enriched_lambda :: MonadState NamerState m => ML.Definition -> m [EL.Definition]
   definition_to_enriched_lambda (ML.D_Let (p, e))  = do
@@ -195,7 +195,7 @@ module Compiler.Translations.MLtoEL.TranslationToEL (program_to_enriched_lambda)
     return $ (EL.D_Let v e') : dfs
   definition_to_enriched_lambda (ML.D_LetRec lrbs) = do
     lrbs' <- bindings_to_enriched_lambda lrbs
-    return $ [EL.D_Letrec lrbs']
+    return $ [EL.D_LetRec lrbs']
 
   instruction_to_enriched_lambda :: MonadState NamerState m => ML.Instruction -> m EL.Program
   instruction_to_enriched_lambda (ML.IDF df) = do

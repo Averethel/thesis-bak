@@ -116,7 +116,7 @@ module Languages.EnrichedLambda.Parser (expressionParser, program) where
     bAssgn = const B_Assign <$> reservedOp ":="
 
   preExpression :: Parser Expr
-  preExpression = choice [try $ parens $ expression, pVal, pUprim, pBprim, pConst, pITE, pList, pPair, pLet, pLetrec, pFun, pMF] where
+  preExpression = choice [try $ parens $ expression, pVal, pUprim, pBprim, pConst, pITE, pList, pPair, pLet, pLetRec, pFun, pMF] where
     pVal    = E_Val <$> identifier
     pUprim  = E_UPrim <$> (angles $ unaryPrim)
     pBprim  = E_BPrim <$> (angles $ binaryPrim)
@@ -125,7 +125,7 @@ module Languages.EnrichedLambda.Parser (expressionParser, program) where
     pList   = foldr E_Cons (E_Const C_Nil) <$> (brackets . commaSep $ expression)
     pPair   = E_Pair <$> (reservedOp "(" *> expression) <*> (reservedOp "," *> expression <* reservedOp ")")
     pLet    = E_Let <$> (reserved "let" *> identifier) <*> (reservedOp "=" *> expression) <*> (reserved "in" *> expression)
-    pLetrec = E_Letrec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)
+    pLetRec = E_LetRec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)
     pFun    = E_Function <$> (reserved "function" *> identifier) <*> (reservedOp "->" *> expression)
     pMF     = const E_MatchFailure <$> reserved "MatchFailure"
 
@@ -164,9 +164,9 @@ module Languages.EnrichedLambda.Parser (expressionParser, program) where
   expression = choice [try expressionFullApp, expressionPartApp]
 
   definition :: Parser Definition
-  definition = choice [dLet, dLetrec] where
+  definition = choice [dLet, dLetRec] where
     dLet    = D_Let <$> (reserved "let" *> identifier) <*> (reservedOp "=" *> expression)
-    dLetrec = D_Letrec <$> (reserved "letrec" *> letrecBindings)
+    dLetRec = D_LetRec <$> (reserved "letrec" *> letrecBindings)
 
   instruction :: Parser Instruction
   instruction = choice [try iex, idf] where

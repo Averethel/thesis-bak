@@ -42,7 +42,7 @@ module Compiler.Translations.ELtoELLT where
   expression_to_low_level_lambda (EL.E_Seq e1 e2)      = LT.E_Seq (expression_to_low_level_lambda e1) $ expression_to_low_level_lambda e2
   expression_to_low_level_lambda (EL.E_Pair e1 e2)     = LT.E_Apply (LT.E_Apply (LT.E_Prim LT.P_AllocPair) $ expression_to_low_level_lambda e1) $ expression_to_low_level_lambda e2
   expression_to_low_level_lambda (EL.E_Let s e1 e2)    = LT.E_Let s (expression_to_low_level_lambda e1) $ expression_to_low_level_lambda e2
-  expression_to_low_level_lambda (EL.E_Letrec s e1 e2) = LT.E_Letrec s (expression_to_low_level_lambda e1) $ expression_to_low_level_lambda e2
+  expression_to_low_level_lambda (EL.E_LetRec s e1 e2) = LT.E_LetRec s (expression_to_low_level_lambda e1) $ expression_to_low_level_lambda e2
   expression_to_low_level_lambda (EL.E_Apply e1 e2)    = LT.E_Apply (expression_to_low_level_lambda e1) $ expression_to_low_level_lambda e2
   expression_to_low_level_lambda (EL.E_Function s e)   = LT.E_Function s $ expression_to_low_level_lambda e
   expression_to_low_level_lambda (EL.E_MatchFailure)   = LT.E_MatchFailure

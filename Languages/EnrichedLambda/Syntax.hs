@@ -39,7 +39,7 @@ module Languages.EnrichedLambda.Syntax where
     | E_Seq Expr Expr
     | E_Pair Expr Expr
     | E_Let String Expr Expr
-    | E_Letrec [(String, Expr)] Expr
+    | E_LetRec [(String, Expr)] Expr
     | E_Apply Expr Expr
     | E_Function String Expr
     | E_MatchFailure
@@ -48,7 +48,7 @@ module Languages.EnrichedLambda.Syntax where
 
   data Definition =
       D_Let String Expr
-    | D_Letrec [(String, Expr)]
+    | D_LetRec [(String, Expr)]
 
   data Instruction =
       IDF Definition

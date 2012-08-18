@@ -117,7 +117,7 @@ module Languages.EnrichedLambdaLowLevelTypes.Typing where
     t2 <- type_of_expression e2
     reset_typing_env env
     return t2
-  type_of_expression (E_Letrec v e1 e2) = do
+  type_of_expression (E_LetRec v e1 e2) = do
     env <- get_typing_env
     tv <- fresh_type_var
     extend_typing_env v tv

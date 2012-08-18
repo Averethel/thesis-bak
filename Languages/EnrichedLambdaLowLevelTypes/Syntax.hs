@@ -43,7 +43,7 @@ module Languages.EnrichedLambdaLowLevelTypes.Syntax where
     | E_ITE Expr Expr Expr
     | E_Seq Expr Expr
     | E_Let String Expr Expr
-    | E_Letrec String Expr Expr
+    | E_LetRec String Expr Expr
     | E_Apply Expr Expr
     | E_Function String Expr
     | E_MatchFailure
