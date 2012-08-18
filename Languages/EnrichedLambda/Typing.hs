@@ -2,7 +2,7 @@
   FlexibleContexts
   #-}
 
-module Languages.EnrichedLambda.Typing (type_of_expression, type_of_program) where
+module Languages.EnrichedLambda.Typing (type_of_expression, type_of_definition, type_of_program) where
   import Languages.EnrichedLambda.Errors
   import Languages.EnrichedLambda.PrettyPrint
   import Languages.EnrichedLambda.State

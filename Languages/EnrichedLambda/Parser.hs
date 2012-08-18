@@ -1,4 +1,4 @@
-module Languages.EnrichedLambda.Parser (expressionParser, program) where
+module Languages.EnrichedLambda.Parser (inputParser, expressionParser, program) where
   import Languages.EnrichedLambda.Syntax
   import Languages.EnrichedLambda.PrettyPrint
   
@@ -178,6 +178,9 @@ module Languages.EnrichedLambda.Parser (expressionParser, program) where
 
   runPp :: Parser a -> String -> Either ParseError a
   runPp p = parse (PTok.whiteSpace lang  >> p) ""
+
+  inputParser :: String -> Either ParseError Instruction
+  inputParser = runPp instruction
 
   expressionParser :: String -> Either ParseError Expr
   expressionParser = runPp (expression <* reservedOp ";;")

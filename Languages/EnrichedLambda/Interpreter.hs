@@ -39,17 +39,25 @@ module Languages.EnrichedLambda.Interpreter where
     `catchError`
       (\e -> return $ typing_error e expr)
   
-  evaluate :: (MonadState InterpreterState m, MonadError String m) => Expr -> m String
-  evaluate expr = do {
-      t <- type_of_expression expr;
+  evaluate :: (MonadState InterpreterState m, MonadError String m) => Instruction -> m String
+  evaluate (IEX ex) = do {
+      t <- type_of_expression ex;
       f <- unify;
       check_compare;
-      v <- eval_expr expr;
+      v <- eval_expr ex;
       extend_typing_env "it" t;
       extend_eval_env "it" v;
       return $ show v ++ " : " ++ show (f t) }
     `catchError`
-      (\e -> return $ eval_error e expr)
+      (\e -> return $ eval_error e ex)
+  evaluate (IDF df) = do {
+      type_of_definition df;
+      f <- unify;
+      check_compare;
+      eval_definition df;
+      return "Defined." }
+    `catchError`
+      (\e -> return $ eval_error e df)
   
   evaluate_program :: (MonadState InterpreterState m, MonadError String m) => Program -> m String
   evaluate_program prog = do {
@@ -95,13 +103,13 @@ module Languages.EnrichedLambda.Interpreter where
             (Right (m, s)) <- runErrorT $ runStateT (evaluate_program prog) state
             outputStrLn m
             eval_loop s  
-      Just expr               -> do
-        case expressionParser expr of
+      Just instr             -> do
+        case inputParser instr of
           Left err   -> do
-            outputStrLn $ parse_error err expr
+            outputStrLn $ parse_error err instr
             eval_loop state
-          Right expr -> do
-            (Right (m, s)) <- runErrorT $ runStateT (evaluate expr) state
+          Right instr -> do
+            (Right (m, s)) <- runErrorT $ runStateT (evaluate instr) state
             outputStrLn m
             eval_loop s
 
