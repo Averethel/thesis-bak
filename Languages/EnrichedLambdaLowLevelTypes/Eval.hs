@@ -2,7 +2,7 @@
   FlexibleContexts
   #-}
 
-module Languages.EnrichedLambdaLowLevelTypes.Eval where
+module Languages.EnrichedLambdaLowLevelTypes.Eval (eval_expr, eval_definition, eval_program) where
   import Languages.EnrichedLambdaLowLevelTypes.Errors
   import Languages.EnrichedLambdaLowLevelTypes.Syntax
   import Languages.EnrichedLambdaLowLevelTypes.State
@@ -49,6 +49,12 @@ module Languages.EnrichedLambdaLowLevelTypes.Eval where
       alloc_dynamic_mem s = do
         ptr <- store Dynamic s
         return $ S_Ptr ptr
+
+  recfun :: (MonadState InterpreterState m) => [LetRecBinding] -> m ()
+  recfun []          = return ()
+  recfun ((v, b):bs) = do
+    extend_eval_env v b
+    recfun bs
   
   eval_prim :: (MonadError String m, MonadState InterpreterState m) => Prim -> [Expr] -> m Expr
   eval_prim P_AllocPair [e1, e2]                                                        = do
@@ -123,8 +129,8 @@ module Languages.EnrichedLambdaLowLevelTypes.Eval where
     | otherwise                                              = do
       extend_eval_env s e1
       return e2
-  eval_step_expr (E_Letrec s e1 e2)                          = do
-    extend_eval_env s e1
+  eval_step_expr (E_LetRec lrbs e2)                          = do
+    recfun lrbs
     return e2
   eval_step_expr (E_Apply e1 e2)
     | not . is_value $ e1                                    = do
@@ -142,7 +148,6 @@ module Languages.EnrichedLambdaLowLevelTypes.Eval where
     | not . is_binary $ p                                    = eval_prim p [e]
   eval_step_expr E_MatchFailure                              = throwError match_failure
 
-
   eval_expr :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Expr
   eval_expr e
     | is_value e = return e
@@ -150,4 +155,24 @@ module Languages.EnrichedLambdaLowLevelTypes.Eval where
       e' <- eval_step_expr e
       eval_expr e'
 
-    
+  eval_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
+  eval_definition (D_Let v e)    = do
+    e' <- eval_expr e
+    extend_eval_env v e'
+  eval_definition (D_LetRec lrbs) = recfun lrbs
+
+  eval_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
+  eval_instruction (IDF df) = eval_definition df
+  eval_instruction (IEX ex) = do
+    e <- eval_expr ex
+    extend_eval_env "it" e
+
+  eval_program :: (MonadError String m, MonadState InterpreterState m) => Program -> m Expr
+  eval_program []     = do
+    env <- get_eval_env
+    case env "it" of
+      Nothing -> return $ E_Struct Null
+      Just ex -> return ex
+  eval_program (i:is) = do
+    eval_instruction i
+    eval_program is

@@ -1,14 +1,18 @@
-module Languages.MiniML.Eval (eval_program, eval_instruction, matches) where
-  import Languages.MiniML.Errors
-  import Languages.MiniML.Syntax
-  import Languages.MiniML.Typing
+{-# LANGUAGE
+  FlexibleContexts
+  #-}
 
-  import Data.Maybe
+module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
+  import Languages.MiniML.Errors
+  import Languages.MiniML.State
+  import Languages.MiniML.Syntax
+
+  import Control.Monad.Error
+  import Control.Monad.State
 
   is_value :: Expr -> Bool
   is_value (E_UPrim _)             = True
   is_value (E_BPrim _)             = True
-  -- is_value (E_Val _)               = True
   is_value (E_Location _)          = True
   is_value (E_Const _)             = True
   is_value (E_Function _)          = True
@@ -16,6 +20,12 @@ module Languages.MiniML.Eval (eval_program, eval_instruction, matches) where
   is_value (E_Cons e1 e2)          = is_value e1 && is_value e2
   is_value (E_Tuple es)            = all is_value es
   is_value _                       = False
+
+  recfun :: (MonadState InterpreterState m) => [LetRecBinding] -> m ()
+  recfun []          = return ()
+  recfun ((v, b):bs) = do
+    extend_eval_env v $ E_Function b
+    recfun bs
 
   matches :: Expr -> Pattern -> Bool
   e              `matches` (P_Val x)      = True
@@ -26,186 +36,187 @@ module Languages.MiniML.Eval (eval_program, eval_instruction, matches) where
   (E_Cons e1 e2) `matches` (P_Cons p1 p2) = e1 `matches` p1 && e2 `matches` p2
   _              `matches` _              = False
 
-  gen_subst :: Expr -> Pattern -> EvalEnv
-  gen_subst e              (P_Val x)      = [(x, e)]
-  gen_subst e              P_Wildcard     = []
-  gen_subst (E_Const _)    (P_Const _)    = []
-  gen_subst (E_Tuple es)   (P_Tuple ps)   = concat $ zipWith gen_subst es ps
-  gen_subst (E_Cons e1 e2) (P_Cons p1 p2) = gen_subst e1 p1 ++ gen_subst e2 p2
+  matches_of_pattern :: (MonadError String m, MonadState InterpreterState m) => Pattern -> Expr -> m ()
+  matches_of_pattern (P_Val x)        e                =
+    extend_eval_env x e
+  matches_of_pattern P_Wildcard       _                =
+    return ()
+  matches_of_pattern (P_Const _)      (E_Const _)      =
+    return ()
+  matches_of_pattern (P_Tuple [])     (E_Tuple [])     =
+    return ()
+  matches_of_pattern (P_Tuple (p:ps)) (E_Tuple (e:es)) = do
+    matches_of_pattern p e
+    matches_of_pattern (P_Tuple ps) $ E_Tuple es
+  matches_of_pattern (P_Cons p1 p2)   (E_Cons e1 e2)   = do
+    matches_of_pattern p1 e1
+    matches_of_pattern p2 e2
 
-  match_clause :: EvalEnv -> Mem -> [(Pattern, Expr)] -> Expr -> Either String (Expr, EvalEnv, Mem)
-  match_clause _   _   []          _  = Left $ match_failure
-  match_clause env mem ((p, e):ms) ex
-    | ex `matches` p                  = Right (e, gen_subst ex p ++ env, mem)
-    | otherwise                       = match_clause env mem ms ex
+  eval_unary_primitive :: (MonadError String m, MonadState InterpreterState m) => UnaryPrim -> Expr -> m Expr
+  eval_unary_primitive U_Not     (E_Const C_False)   =
+    return $ E_Const C_True
+  eval_unary_primitive U_Not     (E_Const C_True)    =
+    return $ E_Const C_False
+  eval_unary_primitive U_Ref     e                   = do
+    addr <- store e
+    return $ E_Location addr
+  eval_unary_primitive U_Deref   (E_Location addr)   =
+    load addr
+  eval_unary_primitive U_I_Minus (E_Const (C_Int n)) =
+    return $ E_Const $ C_Int $ 0 - n
 
-  gen_location :: Mem -> Integer
-  gen_location = toInteger.length
+  eval_binary_primitive :: (MonadError String m, MonadState InterpreterState m) => BinaryPrim -> Expr -> Expr -> m Expr 
+  eval_binary_primitive B_Eq      (E_Const c1)        (E_Const c2)
+    | c1 == c2                                                            = 
+      return $ E_Const C_True
+    | otherwise                                                           =
+      return $ E_Const C_False
+  eval_binary_primitive B_Eq      e1@(E_Location _)   e2@(E_Location _)   =
+    return $ E_Apply (E_Apply (E_BPrim B_Eq) $ E_Apply (E_UPrim U_Deref) e1) $ E_Apply (E_UPrim U_Deref) e2
+  eval_binary_primitive B_Eq      (E_Tuple [])        (E_Tuple [])        =
+    return $ E_Const C_True
+  eval_binary_primitive B_Eq      (E_Tuple [])        (E_Tuple _)         =
+    return $ E_Const C_False
+  eval_binary_primitive B_Eq      (E_Tuple _)         (E_Tuple [])        =
+    return $ E_Const C_False
+  eval_binary_primitive B_Eq      (E_Tuple (e1:es1))  (E_Tuple (e2:es2))  =
+    return $ E_And (E_Apply (E_Apply (E_BPrim B_Eq) e1) e2) $ E_Apply (E_Apply (E_BPrim B_Eq) $ E_Tuple es1) $ E_Tuple es2
+  eval_binary_primitive B_Eq      (E_Const C_Nil)     (E_Cons _ _)        =
+    return $ E_Const C_False
+  eval_binary_primitive B_Eq      (E_Cons _ _)        (E_Const C_Nil)     =
+    return $ E_Const C_False
+  eval_binary_primitive B_Eq      (E_Cons e1 e2)      (E_Cons e3 e4)      =
+    return $ E_And (E_Apply (E_Apply (E_BPrim B_Eq) e1) e3) $ E_Apply (E_Apply (E_BPrim B_Eq) e2) e4
+  eval_binary_primitive B_I_Plus  (E_Const (C_Int n)) (E_Const (C_Int m)) =
+    return $ E_Const $ C_Int $ n + m
+  eval_binary_primitive B_I_Minus (E_Const (C_Int n)) (E_Const (C_Int m)) =
+    return $ E_Const $ C_Int $ n - m
+  eval_binary_primitive B_I_Mult  (E_Const (C_Int n)) (E_Const (C_Int m)) =
+    return $ E_Const $ C_Int $ n * m
+  eval_binary_primitive B_I_Div   _                   (E_Const (C_Int 0)) =
+    throwError division_by_0
+  eval_binary_primitive B_I_Div   (E_Const (C_Int n)) (E_Const (C_Int m)) =
+    return $ E_Const $ C_Int $ n `div` m
+  eval_binary_primitive B_Assign  (E_Location addr)   e                   = do
+    store_at addr e
+    return $ E_Const C_Unit
 
-  get_reference :: Mem -> Expr -> Expr
-  get_reference (m:ms) (E_Location 0) = m
-  get_reference (m:ms) (E_Location n) = get_reference ms $ E_Location $ n - 1
+  eval_function :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> Expr -> m Expr
+  eval_function []           _  =
+    throwError match_failure
+  eval_function ((p, e2):bs) e1
+    | e1 `matches` p            = do
+      matches_of_pattern p e1
+      return e2
+    | otherwise                 =
+      eval_function bs e1
 
-  store_reference :: Mem -> Expr -> Expr -> Mem
-  store_reference []     (E_Location 0) v = [v]
-  store_reference (m:ms) (E_Location 0) v = v:ms
-  store_reference (m:ms) (E_Location n) v = m:store_reference ms (E_Location $ n-1) v
+  eval_step_tuple :: (MonadError String m, MonadState InterpreterState m) => [Expr] -> [Expr] -> m Expr
+  eval_step_tuple []     acc = 
+    return $ E_Tuple $ reverse acc
+  eval_step_tuple (e:es) acc
+    | is_value e             =
+      eval_step_tuple es (e:acc)
+    | not . is_value $ e     = do
+      e' <- eval_step_expr e
+      return $ E_Tuple $ (reverse acc) ++ e' : es
 
-  get_value :: EvalEnv -> Expr -> Expr
-  get_value e (E_Val n) = fromJust $ n `lookup` e
+  eval_step_expr :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Expr
+  eval_step_expr (E_Val vn)                             = do
+    env <- get_eval_env
+    case env vn of
+      Nothing -> throwError $ unbound_variable vn
+      Just e  -> return e
+  eval_step_expr (E_Cons e1 e2)
+    | is_value e1 && (not . is_value $ e2)              = do
+      e2' <- eval_step_expr e2
+      return $ E_Cons e1 e2'
+    | not . is_value $ e1                               = do
+      e1' <- eval_step_expr e1
+      return $ E_Cons e1' e2
+  eval_step_expr (E_And e1 e2)
+    | not . is_value $ e1                               = do
+      e1' <- eval_step_expr e1
+      return $ E_And e1' e2
+  eval_step_expr (E_And (E_Const C_False) _)            =
+    return $ E_Const C_False
+  eval_step_expr (E_And (E_Const C_True) e2)            =
+    return e2
+  eval_step_expr (E_Or e1 e2)
+    | not . is_value $ e1                               = do
+      e1' <- eval_step_expr e1
+      return $ E_Or e1' e2
+  eval_step_expr (E_Or (E_Const C_True) _)              =
+    return $ E_Const C_True
+  eval_step_expr (E_Or (E_Const C_False) e2)            =
+    return e2
+  eval_step_expr (E_ITE e1 e2 e3)
+    | not . is_value $ e1                               = do
+      e1' <- eval_step_expr e1
+      return $ E_ITE e1' e2 e3
+  eval_step_expr (E_ITE (E_Const C_True) e2 _)          =
+    return e2
+  eval_step_expr (E_ITE (E_Const C_False) _ e3)         =
+    return e3
+  eval_step_expr (E_Seq e1 e2)
+    | not . is_value $ e1                               = do
+      e1' <- eval_step_expr e1
+      return $ E_Seq e1' e2
+  eval_step_expr (E_Seq (E_Const C_Unit) e2)            = 
+    return e2
+  eval_step_expr (E_Apply e1 e2)
+    | is_value e1 && (not . is_value $ e2)              = do
+      e2' <- eval_step_expr e2
+      return $ E_Apply e1 e2'
+    | not . is_value $ e1                               = do
+      e1' <- eval_step_expr e1
+      return $ E_Apply e1' e2 
+  eval_step_expr (E_Apply (E_UPrim up) e1)              = 
+    eval_unary_primitive up e1
+  eval_step_expr (E_Apply (E_Apply (E_BPrim bp) e1) e2) = 
+    eval_binary_primitive bp e1 e2
+  eval_step_expr (E_Apply (E_Function pm) e2)           = 
+    eval_function pm e2
+  eval_step_expr (E_Tuple es)                           =
+    eval_step_tuple es []
+  eval_step_expr (E_Let (p, e1) e2)
+    | not . is_value $ e1                               = do
+      e1' <- eval_step_expr e1
+      return $ E_Let (p, e1') e2
+    | is_value e1                                       = do
+      matches_of_pattern p e1
+      return e2
+  eval_step_expr (E_LetRec lrbs e)                      = do
+    recfun lrbs
+    return e
 
-  eval_unary_primitive :: EvalEnv -> Mem -> UnaryPrim -> Expr -> (Expr, EvalEnv, Mem)
-  eval_unary_primitive env mem (U_Not)     (E_Const C_True)    = (E_Const C_False, env, mem)
-  eval_unary_primitive env mem (U_Not)     (E_Const C_False)   = (E_Const C_True, env, mem)
-  eval_unary_primitive env mem (U_I_Minus) (E_Const (C_Int n)) = (E_Const $ C_Int $ 0 - n, env, mem)
-  eval_unary_primitive env mem (U_Ref)     e                   = (l, env, store_reference mem l e) where
-    l = E_Location $ gen_location mem
-  eval_unary_primitive env mem (U_Deref)   e@(E_Location l)    = (get_reference mem e, env, mem)
+  eval_expr :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Expr
+  eval_expr e
+    | is_value e = return e
+    | otherwise  = do 
+      e' <- eval_step_expr e
+      eval_expr e'
 
-  eval_binary_primitive :: EvalEnv -> Mem -> Expr -> BinaryPrim -> Expr -> Either String (Expr, EvalEnv, Mem)
-  eval_binary_primitive env mem (E_Const c1) B_Eq (E_Const c2)
-    | c1 == c2                                                                      = Right (E_Const C_True, env, mem)
-    | otherwise                                                                     = Right (E_Const C_False, env, mem)
-  eval_binary_primitive env mem e1@(E_Location l1) B_Eq e2@(E_Location l2)          = Right (E_Apply (E_Apply (E_BPrim B_Eq) (E_Apply (E_UPrim U_Deref) e1)) (E_Apply (E_UPrim U_Deref) e2), env, mem)
-  eval_binary_primitive env mem (E_Cons _ _) B_Eq (E_Const C_Nil)                   = Right (E_Const C_False, env, mem)
-  eval_binary_primitive env mem (E_Const C_Nil) B_Eq (E_Cons _ _)                   = Right (E_Const C_False, env, mem)
-  eval_binary_primitive env mem (E_Cons e1 e2) B_Eq (E_Cons e1' e2')                = Right (E_And (E_Apply (E_Apply (E_BPrim B_Eq) e1) e1') (E_Apply (E_Apply (E_BPrim B_Eq) e2) e2'), env, mem)
-  eval_binary_primitive env mem (E_Tuple es1) B_Eq (E_Tuple es2)
-    | length es1 == length es2                                                      = Right (foldl E_And (E_Const C_True) $ zipWith (\e1 e2 -> E_Apply (E_Apply (E_BPrim B_Eq) e1) e2) es1 es2, env, mem)
-    | otherwise                                                                     = Right (E_Const C_False, env, mem)
-  eval_binary_primitive env mem (E_Const (C_Int n1)) B_I_Plus (E_Const (C_Int n2))  = Right (E_Const $ C_Int $ n1 + n2, env, mem)
-  eval_binary_primitive env mem (E_Const (C_Int n1)) B_I_Minus (E_Const (C_Int n2)) = Right (E_Const $ C_Int $ n1 - n2, env, mem)
-  eval_binary_primitive env mem (E_Const (C_Int n1)) B_I_Mult (E_Const (C_Int n2))  = Right (E_Const $ C_Int $ n1 * n2, env, mem)
-  eval_binary_primitive env mem (E_Const (C_Int n1)) B_I_Div (E_Const (C_Int n2))
-    | n2 /= 0                                                                       = Right (E_Const $ C_Int $ n1 `div` n2, env, mem)
-    | otherwise                                                                     = Left $ division_by_0
-  eval_binary_primitive env mem e1@(E_Location l) B_Assign e2                       = Right (E_Const C_Unit, env, store_reference mem e1 e2)
+  eval_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
+  eval_definition (D_Let (p, e))    = do
+    e' <- eval_expr e
+    matches_of_pattern p e'
+  eval_definition (D_LetRec lrbs)   = 
+    recfun lrbs
 
-  recfun :: [(ValueName, [(Pattern, Expr)])] -> [(Pattern, Expr)] -> Expr
-  recfun lrbs pm = apply_substs subst $ apply_substs renaming_subst (E_Function pm) where
-    pre_subst      = recfun' lrbs
-    renaming_subst = map (\(a, _) -> (a, E_Val $ "'" ++ a)) pre_subst
-    subst          = map (\(a, b) -> ("'" ++ a, b)) pre_subst
-    recfun' :: [(ValueName, [(Pattern, Expr)])] -> EvalEnv
-    recfun' []           = []
-    recfun' ((vn, _):bs) = (vn, E_LetRec lrbs $ E_Val vn) : recfun' bs
-    apply_subst :: ValueName -> Expr -> Expr -> Expr
-    apply_subst vn e1 e2@(E_UPrim _)    = e2
-    apply_subst vn e1 e2@(E_BPrim _)    = e2
-    apply_subst vn e1 e2@(E_Val vn')
-      | vn == vn'                       = e1
-      | otherwise                       = e2
-    apply_subst vn e1 e2@(E_Location _) = e2
-    apply_subst vn e1 e2@(E_Const _)    = e2
-    apply_subst vn e1 (E_Apply e e')    = E_Apply (apply_subst vn e1 e) (apply_subst vn e1 e')
-    apply_subst vn e1 (E_Cons e e')     = E_Cons (apply_subst vn e1 e) (apply_subst vn e1 e')
-    apply_subst vn e1 (E_Tuple es)      = E_Tuple $ map (apply_subst vn e1) es
-    apply_subst vn e1 (E_And e e')      = E_And (apply_subst vn e1 e) (apply_subst vn e1 e')
-    apply_subst vn e1 (E_Or e e')       = E_Or (apply_subst vn e1 e) (apply_subst vn e1 e')
-    apply_subst vn e1 (E_ITE e e' e'')  = E_ITE (apply_subst vn e1 e) (apply_subst vn e1 e') (apply_subst vn e1 e'')
-    apply_subst vn e1 (E_Seq e e')      = E_Seq (apply_subst vn e1 e) (apply_subst vn e1 e')
-    apply_subst vn e1 (E_Function ps)   = E_Function $ map (\(p, e) -> if   p `binds` vn
-                                                                       then (p, e)
-                                                                       else (p, apply_subst vn e1 e)) ps
-    apply_subst vn e1 (E_Let (p, e) e')
-      | p `binds` vn                    = E_Let (p, apply_subst vn e1 e) e'
-      | otherwise                       = E_Let (p, apply_subst vn e1 e) $ apply_subst vn e1 e'
-    apply_subst vn e1 e2@(E_LetRec lrbs e)
-      | vn `elem` (map fst lrbs)        = e2
-      | otherwise                       = E_LetRec (map (\(v, bs) -> (v, map (\(p, e) -> if   p `binds` vn
-                                                                                        then (p, e)
-                                                                                        else (p, apply_subst vn e1 e)) bs)) lrbs) $ apply_subst vn e1 e
-    apply_substs :: EvalEnv -> Expr -> Expr
-    apply_substs []          e2 = e2
-    apply_substs ((v,e1):ss) e2 = apply_substs ss $ apply_subst v e1 e2
-    binds :: Pattern -> ValueName -> Bool
-    (P_Val v)      `binds` vn = v == vn
-    (P_Tuple ps)   `binds` vn = any (`binds` vn) ps
-    (P_Cons p1 p2) `binds` vn = p1 `binds` vn || p2 `binds` vn
-    _              `binds` _  = False
+  eval_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
+  eval_instruction (IDF df) = 
+    eval_definition df
+  eval_instruction (IEX ex) = do
+    e <- eval_expr ex
+    extend_eval_env "it" e
 
-  eval_step_expr :: EvalEnv -> Mem -> Expr -> Either String (Expr, EvalEnv, Mem)
-  eval_step_expr env mem e@(E_Val vn) = Right (get_value env e, env, mem)
-  eval_step_expr env mem e@(E_Location l) = Right (get_reference mem e, env, mem)
-  eval_step_expr env mem (E_Apply e1 e2)
-    | not (is_value e1) = case eval_step_expr env mem e1 of
-      Left err                -> Left err
-      Right (e1', env', mem') -> Right (E_Apply e1' e2, env', mem')
-    | is_value e1 && not (is_value e2) = case eval_step_expr env mem e2 of
-      Left err                -> Left err
-      Right (e2', env', mem') -> Right (E_Apply e1 e2', env', mem')
-  eval_step_expr env mem (E_Apply (E_UPrim up) e1) = Right $ eval_unary_primitive env mem up e1
-  eval_step_expr env mem (E_Apply (E_Apply (E_BPrim bp) e1) e2) = eval_binary_primitive env mem e1 bp e2
-  eval_step_expr env mem (E_Apply (E_Function pm) e2) = match_clause env mem pm e2
-  eval_step_expr env mem (E_Cons e1 e2)
-    | not (is_value e1) = case eval_step_expr env mem e1 of
-      Left err                -> Left err
-      Right (e1', env', mem') -> Right (E_Cons e1' e2, env', mem')
-    | is_value e1 && not (is_value e2) = case eval_step_expr env mem e2 of
-      Left err                -> Left err
-      Right (e2', env', mem') -> Right (E_Cons e1 e2', env', mem')
-  eval_step_expr env mem (E_Tuple es) = eval_step_tuple env mem es [] where
-    eval_step_tuple env mem []     acc = Right (E_Tuple acc, env, mem)
-    eval_step_tuple env mem (e:es) acc
-      | is_value e = eval_step_tuple env mem es (e:acc)
-      | otherwise  = case eval_step_expr env mem e of
-        Left err               -> Left err
-        Right (e', env', mem') -> Right (E_Tuple $ (reverse acc) ++ (e':es), env', mem')
-  eval_step_expr env mem (E_And e1 e2) = Right (E_ITE e1 e2 (E_Const C_False), env, mem)
-  eval_step_expr env mem (E_Or e1 e2) = Right (E_ITE e1 (E_Const C_True) e2, env, mem)
-  eval_step_expr env mem (E_ITE (E_Const C_True) e2 e3) = Right (e2, env, mem)
-  eval_step_expr env mem (E_ITE (E_Const C_False) e2 e3) = Right (e3, env, mem)
-  eval_step_expr env mem (E_ITE e1 e2 e3)
-    | not (is_value e1) = case eval_step_expr env mem e1 of
-      Left err               -> Left err
-      Right (e', env', mem') -> Right (E_ITE e' e2 e3, env', mem')
-  eval_step_expr env mem (E_Seq e1 e2)
-    | not (is_value e1) = case eval_step_expr env mem e1 of
-      Left err                -> Left err
-      Right (e1', env', mem') -> Right (E_Seq e1' e2, env', mem')
-    | is_value e1        = Right (e2, env, mem)
-  eval_step_expr env mem (E_Let (p, e1) e2)
-    | is_value e1 = Right (e2, gen_subst e1 p ++ env, mem)
-    | otherwise   = case eval_step_expr env mem e1 of
-      Left err                -> Left err
-      Right (e1', env', mem') -> Right (E_Let (p, e1') e2, env', mem')
-  eval_step_expr env mem (E_LetRec lrbs es) = Right (es, gen_env lrbs ++ env, mem) where
-    gen_env []            = []
-    gen_env ((vn, pm):bs) = (vn, recfun lrbs pm) : gen_env bs
-
-  eval_expr :: EvalEnv -> Mem -> Expr -> Either String (Expr, Mem)
-  eval_expr env mem e
-    | is_value e = Right (e, mem)
-    | otherwise  = case eval_step_expr env mem e of
-      Left err               -> Left err
-      Right (e', env', mem') -> eval_expr env' mem' e'
-
-  eval_definition :: EvalEnv -> Mem -> Definition -> Either String (EvalEnv, Mem)
-  eval_definition env mem (D_Let (p, e))
-    | is_value e && e `matches` p       = Right (gen_subst e p, mem)
-    | is_value e && not (e `matches` p) = Left match_failure
-    | not (is_value e)                  =
-      case eval_expr env mem e of
-        Left err                       -> Left err
-        Right (e', mem')               -> eval_definition env mem' (D_Let (p, e'))
-  eval_definition env mem (D_LetRec lrbs)   = Right (gen_env lrbs, mem) where
-    gen_env []                          = []
-    gen_env ((vn, pm):bs)               = (vn, recfun lrbs pm) : gen_env bs
-
-  eval_instruction :: EvalEnv -> Mem -> Instruction -> Either String ([Expr], EvalEnv, Mem)
-  eval_instruction env mem (IDF df) =
-    case eval_definition env mem df of
-      Left err                 -> Left err
-      Right (env', mem')       -> Right (map (\(vn, _) -> E_Val vn) env', env' ++ env, mem')
-  eval_instruction env mem (IEX ex) =
-    case eval_expr env mem ex of
-      Left err                 -> Left err
-      Right (ex', mem')        -> Right ([ex'], ("it", ex'):env, mem')
-
-  eval_program :: EvalEnv -> Mem -> Program -> Either String ([Expr], EvalEnv, Mem)
-  eval_program env mem = eval_program' env mem [] where
-    eval_program' env mem exprs []     = Right (exprs, env, mem)
-    eval_program' env mem exprs (i:is) =
-      case eval_instruction env mem i of
-        Left err                   -> Left err
-        Right (exprs', env', mem') -> eval_program' env' mem' exprs' is
+  eval_program :: (MonadError String m, MonadState InterpreterState m) => Program -> m Expr
+  eval_program []     = do
+    env <- get_eval_env
+    case env "it" of
+      Nothing -> return Null
+      Just ex -> return ex
+  eval_program (i:is) = do
+    eval_instruction i
+    eval_program is
