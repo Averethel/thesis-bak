@@ -29,7 +29,7 @@ module Languages.EnrichedLambda.Syntax where
     deriving Eq
   
   data Expr =
-      E_Var String
+      E_Val String
     | E_UPrim UnaryPrim
     | E_BPrim BinaryPrim
     | E_Const Constant
@@ -39,12 +39,22 @@ module Languages.EnrichedLambda.Syntax where
     | E_Seq Expr Expr
     | E_Pair Expr Expr
     | E_Let String Expr Expr
-    | E_Letrec String Expr Expr
+    | E_LetRec [(String, Expr)] Expr
     | E_Apply Expr Expr
     | E_Function String Expr
     | E_MatchFailure
     | Null -- for memory emptiness
     deriving Eq
+
+  data Definition =
+      D_Let String Expr
+    | D_LetRec [(String, Expr)]
+
+  data Instruction =
+      IDF Definition
+    | IEX Expr
+
+  type Program = [Instruction]
   
   data Type =
       T_Var String

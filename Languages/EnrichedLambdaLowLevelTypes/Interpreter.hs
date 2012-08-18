@@ -15,6 +15,8 @@ module Languages.EnrichedLambdaLowLevelTypes.Interpreter where
   import Data.Array
   import Data.Maybe
   import System.Console.Haskeline
+  import System.IO.Error
+  import Text.Parsec.String (parseFromFile)
   
   get_type :: (MonadState InterpreterState m, MonadError String m) => Expr -> m String
   get_type expr = 
@@ -26,19 +28,38 @@ module Languages.EnrichedLambdaLowLevelTypes.Interpreter where
     `catchError`
       (\e -> return $ typing_error e expr)
   
-  evaluate :: (MonadState InterpreterState m, MonadError String m) => Expr -> m String
-  evaluate expr = do {
-      t <- type_of_expression expr;
+  evaluate :: (MonadState InterpreterState m, MonadError String m) => Instruction -> m String
+  evaluate (IEX ex) = do {
+      t <- type_of_expression ex;
       f <- unify;
       check_compare;
-      v <- eval_expr expr;
+      v <- eval_expr ex;
       extend_typing_env "it" t;
       extend_eval_env "it" v;
       s <- get;
       ex <- show_expression v s;
       return $  ex ++ " : " ++ show (f t) }
     `catchError`
-      (\e -> return $ eval_error e expr)
+      (\e -> return $ eval_error e ex)
+  evaluate (IDF df) = do {
+      type_of_definition df;
+      f <- unify;
+      check_compare;
+      eval_definition df;
+      return "Defined." }
+    `catchError`
+      (\e -> return $ eval_error e df)
+
+  evaluate_program :: (MonadState InterpreterState m, MonadError String m) => Program -> m String
+  evaluate_program prog = do {
+      type_of_program prog;
+      f <- unify;
+      check_compare;
+      v <- eval_program prog;
+      t <- type_of_expression v;
+      return $ show v ++ " : " ++ show (f t) }
+    `catchError`
+      (\e -> return $ eval_error e prog)
   
   show_expression :: (MonadState InterpreterState m, MonadError String m) => Expr -> InterpreterState -> m String
   show_expression (E_Val e) s = show_expression (fromJust $ eval_env s $ e) s
@@ -107,11 +128,11 @@ module Languages.EnrichedLambdaLowLevelTypes.Interpreter where
       Just ":q"                     -> return ()
       Just ":c"                     -> eval_loop empty_state
       Just (':':'m':'e':'m':' ':'d':rest) -> do
-        case runPp natural rest of
+        case naturalParser rest of
           Left err   -> outputStrLn $ parse_error err rest
           Right addr -> outputStrLn $ show $ (dynamic_memory state) `at` addr
       Just (':':'m':'e':'m':' ':'s':rest) -> do
-        case runPp natural rest of
+        case naturalParser rest of
           Left err   -> outputStrLn $ parse_error err rest
           Right addr -> outputStrLn $ show $ (static_memory state) `at` addr
       Just (':':'t':' ':rest) -> do
@@ -123,13 +144,26 @@ module Languages.EnrichedLambdaLowLevelTypes.Interpreter where
             (Right (m, s)) <- runErrorT $ runStateT (get_type expr) state
             outputStrLn m
             eval_loop s
-      Just expr               -> do
-        case expressionParser expr of
-          Left err   -> do
-            outputStrLn $ parse_error err expr
+      Just (':':'l':' ':file) -> do
+        res <- liftIO $ try $ parseFromFile program file
+        case res of
+          Left err           -> do
+            outputStrLn $ show err
             eval_loop state
-          Right expr -> do
-            (Right (m, s)) <- runErrorT $ runStateT (evaluate expr) state
+          Right (Left err)   -> do
+            outputStrLn $ parse_error err file
+            eval_loop state
+          Right (Right prog) -> do
+            (Right (m, s)) <- runErrorT $ runStateT (evaluate_program prog) state
+            outputStrLn m
+            eval_loop s
+      Just instr               -> do
+        case inputParser instr of
+          Left err   -> do
+            outputStrLn $ parse_error err instr
+            eval_loop state
+          Right instr -> do
+            (Right (m, s)) <- runErrorT $ runStateT (evaluate instr) state
             outputStrLn m
             eval_loop s
 

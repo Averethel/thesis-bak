@@ -1,40 +1,54 @@
-module Languages.MiniML.Kinding (kind_of_type_expr) where
-  import Data.List
-  import Data.Maybe
+{-# LANGUAGE
+  FlexibleContexts
+  #-}
 
+module Languages.MiniML.Kinding (kind_of_type_expr) where
+  import Languages.MiniML.Errors
+  import Languages.MiniML.State
   import Languages.MiniML.Syntax
   import Languages.MiniML.PrettyPrint
-  import Languages.MiniML.Errors
 
-  kind_of_type_constr :: TypeConstr -> Kind
-  kind_of_type_constr Int   = K_Type
-  kind_of_type_constr Bool  = K_Type
-  kind_of_type_constr Unit  = K_Type
-  kind_of_type_constr List  = K_Arrow K_Type K_Type
-  kind_of_type_constr Ref   = K_Arrow K_Type K_Type
+  import Control.Monad.Error
+  import Control.Monad.State
 
-  kind_of_type_expr :: TypeExpr -> Either String Kind
-  kind_of_type_expr (TE_Var _) = Right K_Type
-  kind_of_type_expr te@(TE_Arrow e1 e2) =
-    case (kind_of_type_expr e1, kind_of_type_expr e1) of
-      (Left err,     _)            -> Left err
-      (_,            Left err)     -> Left err
-      (Right K_Type, Right K_Type) -> Right K_Type
-      (Right K_Type, Right k2)     -> Left $ invalid "kind" te K_Type (e2, k2)
-      (Right k1,     _)            -> Left $ invalid "kind" te K_Type (e1, k1)
-  kind_of_type_expr te@(TE_Tuple es)
-    | all (\x -> kind_of_type_expr x == Right K_Type) es = Right K_Type
-    | otherwise                                          = Left $ invalid "kind" te K_Type (expr, kind_of_type_expr expr)
+  kind_of_type_constr :: (MonadState InterpreterState m, MonadError String m) => TypeConstr -> m Kind
+  kind_of_type_constr Int   =
+    return K_Type
+  kind_of_type_constr Bool  =
+    return K_Type
+  kind_of_type_constr Unit  =
+    return K_Type
+  kind_of_type_constr List  =
+    return $ K_Arrow K_Type K_Type
+  kind_of_type_constr Ref   =
+    return $ K_Arrow K_Type K_Type
+
+  kind_of_type_expr :: (MonadState InterpreterState m, MonadError String m) => TypeExpr -> m Kind
+  kind_of_type_expr (TE_Var _)           = 
+    return K_Type
+  kind_of_type_expr te@(TE_Arrow e1 e2)  = do
+    k1 <- kind_of_type_expr e1
+    k2 <- kind_of_type_expr e2
+    case (k1, k2) of
+      (K_Type, K_Type) -> return K_Type
+      (K_Type, k2)     -> throwError $ invalid "kind" te K_Type (e2, k2)
+      (k1,     _)      -> throwError $ invalid "kind" te K_Type (e1, k1)
+  kind_of_type_expr (TE_Tuple [])        = 
+    return K_Type
+  kind_of_type_expr te@(TE_Tuple (e:es)) = do
+    k <- kind_of_type_expr e
+    case k of
+      K_Type -> kind_of_type_expr $ TE_Tuple es
+      k      -> throwError $ invalid "kind" te K_Type (e, k)
+  kind_of_type_expr te@(TE_Constr es tc) = do
+    k <- kind_of_type_constr tc
+    apply es k
     where
-      expr = fromJust $ find (\x -> kind_of_type_expr x /= Right K_Type) es
-  kind_of_type_expr te@(TE_Constr es tc) = apply es $ kind_of_type_constr tc
-    where
-      apply [] fk     = Right fk
-      apply (k:ks) fk =
-        case (kind_of_type_expr k, fk) of
-          (Left e, _)               -> Left e
-          (Right kk, K_Arrow k1 k2) ->
-            if   kk == k1
-            then apply ks k2
-            else Left $ invalid "kind" te k1 (k, kk)
-          (_,       k)              -> Left $ too_many_arguments "Type constructor" tc te
+      apply :: (MonadState InterpreterState m, MonadError String m) => [TypeExpr] -> Kind -> m Kind
+      apply []     fk              = return fk
+      apply (e:_)  K_Type          = throwError $ too_many_arguments "Type constructor" tc te
+      apply (e:es) (K_Arrow k1 k2) = do
+        k <- kind_of_type_expr e
+        if   k1 == k
+        then apply es k2
+        else throwError $ invalid "kind" te k1 (e, k)

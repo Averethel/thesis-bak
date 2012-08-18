@@ -132,7 +132,7 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
     bAssgn = const B_Assign <$> reservedOp ":="
 
   preExpression :: Parser Expr
-  preExpression = choice [try $ parens $ expression, eVal, eConst, eList, eTuple, eITE, eFunction, eLet, eLetRec, try eUprim, eBprim] where
+  preExpression = choice [try $ parens expression, eVal, eConst, eList, eTuple, eITE, eFunction, eLet, eLetRec, try eUprim, eBprim] where
     eVal       = E_Val <$> identifier
     eConst     = E_Const <$> constant
     eList      = foldr E_Cons (E_Const C_Nil) <$> (brackets . commaSep $ expression)
@@ -164,13 +164,13 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
                 [Infix (reservedOp "::" *> pure E_Cons) AssocRight],
                 [Infix (reservedOp "&&" *> pure E_And) AssocLeft],
                 [Infix (reservedOp "||" *> pure E_Or) AssocLeft],
-                [Infix (reservedOp ";" *> pure E_Seq) AssocRight],
                 [Infix (reservedOp "*" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_I_Mult) a) b)) AssocLeft],
                 [Infix (reservedOp "/" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_I_Div) a) b)) AssocLeft],
                 [Infix (reservedOp "+" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_I_Plus) a) b)) AssocLeft],
                 [Infix (reservedOp "-" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_I_Minus) a) b)) AssocLeft],
                 [Infix (reservedOp "==" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Eq) a) b)) AssocNone],
-                [Infix (reservedOp ":=" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Assign) a) b)) AssocNone]
+                [Infix (reservedOp ":=" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Assign) a) b)) AssocNone],
+                [Infix (reservedOp ";" *> pure E_Seq) AssocRight]
                 ] preExpression
 
   expression :: Parser Expr

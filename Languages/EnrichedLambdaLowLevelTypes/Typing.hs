@@ -2,7 +2,7 @@
   FlexibleContexts
   #-}
 
-module Languages.EnrichedLambdaLowLevelTypes.Typing where
+module Languages.EnrichedLambdaLowLevelTypes.Typing (type_of_expression, type_of_definition, type_of_program) where
   import Languages.EnrichedLambdaLowLevelTypes.Errors
   import Languages.EnrichedLambdaLowLevelTypes.PrettyPrint
   import Languages.EnrichedLambdaLowLevelTypes.State
@@ -89,6 +89,18 @@ module Languages.EnrichedLambdaLowLevelTypes.Typing where
   type_of_prim P_Assign    = do
     a <- fresh_type_var
     return $ T_Arrow (T_Ref a) $ T_Arrow a $ T_Unit
+
+  recfun :: (MonadError String m, MonadState InterpreterState m) => [(String, Expr)] -> m ()
+  recfun lrbs = recfun' lrbs [] where
+    recfun' []          []           = return ()
+    recfun' []          ((tv, e):cs) = do
+      t <- type_of_expression e
+      add_constraint tv t
+      recfun' [] cs
+    recfun' ((v, e):bs) cs           = do
+      tv <- fresh_type_var
+      extend_typing_env v tv
+      recfun' bs ((tv, e):cs)
   
   type_of_expression :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Type
   type_of_expression (E_Prim p)         = type_of_prim p
@@ -117,28 +129,46 @@ module Languages.EnrichedLambdaLowLevelTypes.Typing where
     t2 <- type_of_expression e2
     reset_typing_env env
     return t2
-  type_of_expression (E_Letrec v e1 e2) = do
+  type_of_expression (E_LetRec lrbs e) = do
     env <- get_typing_env
-    tv <- fresh_type_var
-    extend_typing_env v tv
-    t1 <- type_of_expression e1
-    add_constraint t1 tv
-    t2 <- type_of_expression e2
+    recfun lrbs
+    t2 <- type_of_expression e
     reset_typing_env env
     return t2
-  type_of_expression (E_Apply e1 e2) = do
+  type_of_expression (E_Apply e1 e2)   = do
     t1 <- type_of_expression e1
     t2 <- type_of_expression e2
     tv <- fresh_type_var
     add_constraint t1 (T_Arrow t2 tv)
     return tv
-  type_of_expression (E_Function v e) = do
+  type_of_expression (E_Function v e)  = do
     env <- get_typing_env
     tv <- fresh_type_var
     extend_typing_env v tv
     t <- type_of_expression e
     reset_typing_env env
     return $ T_Arrow tv t
-  type_of_expression E_MatchFailure = do
+  type_of_expression E_MatchFailure    = do
     tv <- fresh_type_var
     return tv
+
+  type_of_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
+  type_of_definition (D_Let v e)     = do
+    t <- type_of_expression e
+    extend_typing_env v t
+  type_of_definition (D_LetRec lrbs) = 
+    recfun lrbs
+
+  type_of_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
+  type_of_instruction (IDF df) = 
+    type_of_definition df
+  type_of_instruction (IEX ex) = do
+    t <- type_of_expression ex
+    extend_typing_env "it" t
+
+  type_of_program :: (MonadError String m, MonadState InterpreterState m) => Program -> m ()
+  type_of_program []     = 
+    return ()
+  type_of_program (i:is) = do
+    type_of_instruction i
+    type_of_program is

@@ -26,136 +26,148 @@ module Languages.EnrichedLambda.State where
     show _ = "EvalEnv"
   
   data Memory = M { 
-                    memory   :: Array Integer Expr,
+                    mem      :: Array Integer Expr,
                     freeCell :: [Integer],
                     used     :: Integer
                   }
+
+  get_free_addr :: MonadError String m => Memory -> m Integer
+  get_free_addr mem = do
+    case freeCell mem of
+      []  -> throwError $ memory_full
+      f:_ -> return f
+  
+  clear_free_addr :: Memory -> Memory
+  clear_free_addr m = m {freeCell = tail . freeCell $ m}
+  
+  update :: Memory -> Integer -> Expr -> Memory
+  update m addr e = m {mem = (mem m)//[(addr, e)]}
+  
+  at :: Memory -> Integer -> Expr
+  m `at` addr = (mem m) ! addr
+
   instance Show Memory where
     show _ = "Memory"
   
   empty_mem :: Integer -> Memory
   empty_mem n = M (listArray (1,n) $ replicate (fromInteger n) Null) [1..n] n
   
-  type InterpreterState = (TypingEnv, Integer, [(Type, Type)], [Type], Subst, EvalEnv, Memory)
+  data InterpreterState = S { 
+                              typing_env         :: TypingEnv, 
+                              variable_counter   :: Integer, 
+                              constraints        :: [(Type, Type)], 
+                              simple_constraints :: [Type], 
+                              subst              :: Subst, 
+                              eval_env           :: EvalEnv, 
+                              memory             :: Memory
+                            }
   
   empty_state :: InterpreterState
-  empty_state = (\n -> Nothing, 0, [], [], id, \n -> Nothing, empty_mem 200)
-  
-  get_const_var :: MonadState InterpreterState m => m Integer
-  get_const_var = do
-    (_, n, _, _, _, _, _) <- get
-    return n
-  
-  inc_const_var :: MonadState InterpreterState m => m ()
-  inc_const_var = do
-    (e, n, c, s, f, v, m) <- get
-    put (e, n+1, c, s, f, v, m)
-    return ()
+  empty_state = S {
+                    typing_env         = \n -> Nothing, 
+                    variable_counter   = 0, 
+                    constraints        = [], 
+                    simple_constraints = [], 
+                    subst              = id, 
+                    eval_env           = \n -> Nothing, 
+                    memory             = empty_mem 200
+                  }
   
   get_typing_env :: MonadState InterpreterState m => m TypingEnv
   get_typing_env = do
-    (e, _, _, _, _, _, _) <- get
-    return e
+    s <- get
+    return $ typing_env s
+  
+  extend_typing_env :: MonadState InterpreterState m => String -> Type -> m ()
+  extend_typing_env v t = do
+    s <- get
+    put $ s {typing_env = \x -> if x == v then Just t else (typing_env s) x }
+    return ()
   
   reset_typing_env :: MonadState InterpreterState m => TypingEnv -> m ()
-  reset_typing_env e = do
-     (_, n, cs, scs, f, v, m) <- get
-     put (e, n, cs, scs, f, v, m)
-     return ()
-  
-  add_to_typing_env :: MonadState InterpreterState m => String -> Type -> m ()
-  add_to_typing_env vn tp = do
-    (env, n, cs, scs, f, v, m) <- get
-    put (\x -> if x == vn then Just tp else env x, n, cs, scs, f, v, m)
+  reset_typing_env env = do
+    s <- get
+    put $ s {typing_env = env}
     return ()
-
-  get_eval_env :: MonadState InterpreterState m => m EvalEnv
-  get_eval_env = do
-    (_, _, _, _, _, e, _) <- get
-    return e
   
-  reset_eval_env :: MonadState InterpreterState m => EvalEnv -> m ()
-  reset_eval_env e = do
-     (v, n, cs, scs, f, _, m) <- get
-     put (v, n, cs, scs, f, e, m)
-     return ()
-  
-  add_to_eval_env :: MonadState InterpreterState m => String -> Expr -> m ()
-  add_to_eval_env vn ex = do
-    (v, n, cs, scs, f, env, m) <- get
-    put (v, n, cs, scs, f, \x -> if x == vn then Just ex else env x, m)
-    return ()
+  fresh_type_var :: MonadState InterpreterState m => m Type
+  fresh_type_var = do
+    s <- get
+    let n = variable_counter s
+    put $ s {variable_counter = n + 1}
+    return $ T_Var $ "a" ++ show n
   
   add_constraint :: MonadState InterpreterState m => Type -> Type -> m ()
   add_constraint t1 t2 = do
-    (e, n, cs, scs, f, v, m) <- get
-    put (e, n, (t1, t2):cs, scs, f, v, m)
+    s <- get
+    put $ s {constraints = (t1, t2) : constraints s}
     return ()
   
   get_constraint :: MonadState InterpreterState m => m (Maybe (Type, Type))
   get_constraint = do
-    (e, n, cs, scs, f, v, m) <- get
-    case cs of
-      []      -> return Nothing
-      (c:cs') -> do
-        put (e, n, cs', scs, f, v, m)
+    s <- get
+    case constraints s of
+      []   -> return Nothing
+      c:cs -> do
+        put $ s {constraints = cs}
         return $ Just c
   
   add_simple_constraint :: MonadState InterpreterState m => Type -> m ()
   add_simple_constraint tp = do
-    (e, n, cs, scs, f, v, m) <- get
-    put (e, n, cs, tp:scs, f, v,  m)
+    s <- get
+    put $ s {simple_constraints = tp : simple_constraints s}
     return ()
   
-  get_simple_constraints :: (MonadState InterpreterState m) => m [Type]
+  get_simple_constraints :: MonadState InterpreterState m => m [Type]
   get_simple_constraints = do
-    (_, _, _, scs, _, _, _) <- get
-    return scs
+    s <- get
+    return $ simple_constraints s
   
   get_subst :: MonadState InterpreterState m => m Subst
   get_subst = do
-    (_, _, _, _, f, _, _) <- get
-    return f
+    s <- get
+    return $ subst s
   
   compose_subst :: MonadState InterpreterState m => Subst -> m ()
   compose_subst z = do
-    (e, n, c, s, f, v, m) <- get
-    put (e, n, c, s, z . f, v, m)
+    s <- get
+    put $ s {subst = z . (subst s)}
     return ()
   
   get_memory :: MonadState InterpreterState m => m Memory
   get_memory = do
-    (_, _, _, _, _, _, mem) <- get
-    return mem
+    s <- get
+    return $ memory s
   
-  get_free_addr :: (MonadError String m, MonadState InterpreterState m) => m Integer
-  get_free_addr = do
-    (e, n, c, s, f, v, m) <- get
-    case m of
-      (M _ [] _)        -> throwError $ memory_full
-      (M m (fc:fcs) fr) -> do
-        put (e, n, c, s, f, v, (M m fcs $ fr - 1))
-        return fc
+  store :: (MonadState InterpreterState m, MonadError String m) => Expr -> m Integer
+  store v = do
+    s <- get
+    let mem = memory s
+    addr <- get_free_addr mem
+    let mem' = clear_free_addr mem
+    put $ s {memory = update mem' addr v}
+    return addr
   
-  update_mem :: MonadState InterpreterState m => Integer -> Expr -> m ()
-  update_mem addr ex = do
-    (e, n, c, s, f, v, (M m fcs fr)) <- get
-    put (e, n, c, s, f, v, (M (m//[(addr, ex)]) fcs fr))
+  store_at :: (MonadState InterpreterState m, MonadError String m) => Integer -> Expr -> m ()
+  store_at addr v = do
+    s <- get
+    let mem = memory s
+    put $ s {memory = update mem addr v}
     return ()
   
-  lookup_mem :: MonadState InterpreterState m => Integer -> m Expr
-  lookup_mem l = do
-    (M m _ _) <- get_memory
-    return $ m ! l
+  load :: MonadState InterpreterState m => Integer -> m Expr
+  load addr = do
+    mem <- get_memory
+    return $ mem `at` addr
   
-  alloc_addr :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Integer
-  alloc_addr ex = do
-    fc <- get_free_addr
-    update_mem fc ex
-    return fc
+  get_eval_env :: MonadState InterpreterState m => m EvalEnv
+  get_eval_env = do
+    s <- get
+    return $ eval_env s
   
-  fresh_type_var :: (MonadState InterpreterState m) => m Type
-  fresh_type_var = do
-    n <- get_const_var
-    inc_const_var
-    return $ T_Var $ "a" ++ show n
+  extend_eval_env :: MonadState InterpreterState m => String -> Expr -> m ()
+  extend_eval_env v t = do
+    s <- get
+    put $ s {eval_env = \x -> if x == v then Just t else (eval_env s) x }
+    return ()
+

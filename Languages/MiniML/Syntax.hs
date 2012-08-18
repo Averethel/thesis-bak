@@ -37,6 +37,10 @@ module Languages.MiniML.Syntax where
     -- P_List [Pattern] - syntactic sugar for foldr P_Cons (P_Const C_Nil)
     deriving Eq
 
+  type Binding = (Pattern, Expr)
+
+  type LetRecBinding = (ValueName, [Binding])
+
   data Expr =
       E_UPrim UnaryPrim
     | E_BPrim BinaryPrim
@@ -51,14 +55,15 @@ module Languages.MiniML.Syntax where
     | E_Or Expr Expr
     | E_ITE Expr Expr Expr
     | E_Seq Expr Expr
-    | E_Function [(Pattern, Expr)]
-    | E_Let (Pattern, Expr) Expr
-    | E_LetRec [(ValueName, [(Pattern, Expr)])] Expr
+    | E_Function [Binding]
+    | E_Let Binding Expr
+    | E_LetRec [LetRecBinding] Expr
+    | Null -- for memory emptiness
     deriving Eq
 
   data Definition =
       D_Let (Pattern, Expr)
-    | D_LetRec [(ValueName, [(Pattern, Expr)])]
+    | D_LetRec [LetRecBinding]
     deriving Eq
 
   data Instruction =
@@ -88,18 +93,3 @@ module Languages.MiniML.Syntax where
     | TE_Tuple    [TypeExpr]
     | TE_Constr   [TypeExpr] TypeConstr
     deriving Eq
-
-  type Env = [(ValueName, TypeExpr)]
-
-  type EvalEnv = [(ValueName, Expr)]
-
-  type Mem = [Expr]
-
-  type Constraints = [(TypeExpr, TypeExpr)]
-
-  type SimpleConstraints = [TypeExpr]
-
-  type InterpreterState = ((Env, Constraints, SimpleConstraints, [TypeVar]), (EvalEnv, Mem))
-
-  empty_state :: InterpreterState
-  empty_state = (([], [], [], []), ([], []))

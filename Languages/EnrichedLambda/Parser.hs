@@ -1,4 +1,4 @@
-module Languages.EnrichedLambda.Parser (expressionParser) where
+module Languages.EnrichedLambda.Parser (inputParser, expressionParser, program) where
   import Languages.EnrichedLambda.Syntax
   import Languages.EnrichedLambda.PrettyPrint
   
@@ -81,6 +81,19 @@ module Languages.EnrichedLambda.Parser (expressionParser) where
     pNil   = const C_Nil <$> reservedOp "[]"
     pUnit  = const C_Unit <$> reservedOp "()"
 
+  preLetRec :: Parser (String, Expr)
+  preLetRec = do 
+                v <- identifier
+                reservedOp "->"
+                e <- expression
+                return (v, e)
+  
+  letrecBindings :: Parser [(String, Expr)]
+  letrecBindings = do 
+                    d <- preLetRec
+                    ds <- many (reserved "and" *> preLetRec)
+                    return $ d:ds
+
   unaryPrim :: Parser UnaryPrim
   unaryPrim = choice [uNot, uRef, uDeref, uFst, uSnd, uHead, uTail] where
     uNot   = const U_Not <$> reserved "not"
@@ -102,8 +115,8 @@ module Languages.EnrichedLambda.Parser (expressionParser) where
     bAssgn = const B_Assign <$> reservedOp ":="
 
   preExpression :: Parser Expr
-  preExpression = choice [try $ parens $ expression, pVar, pUprim, pBprim, pConst, pITE, pList, pPair, pLet, pLetrec, pFun, pMF] where
-    pVar    = E_Var <$> identifier
+  preExpression = choice [try $ parens $ expression, pVal, pUprim, pBprim, pConst, pITE, pList, pPair, pLet, pLetRec, pFun, pMF] where
+    pVal    = E_Val <$> identifier
     pUprim  = E_UPrim <$> (angles $ unaryPrim)
     pBprim  = E_BPrim <$> (angles $ binaryPrim)
     pConst  = E_Const <$> constant
@@ -111,7 +124,7 @@ module Languages.EnrichedLambda.Parser (expressionParser) where
     pList   = foldr E_Cons (E_Const C_Nil) <$> (brackets . commaSep $ expression)
     pPair   = E_Pair <$> (reservedOp "(" *> expression) <*> (reservedOp "," *> expression <* reservedOp ")")
     pLet    = E_Let <$> (reserved "let" *> identifier) <*> (reservedOp "=" *> expression) <*> (reserved "in" *> expression)
-    pLetrec = E_Letrec <$> (reserved "letrec" *> identifier) <*> (reservedOp "=" *> expression) <*> (reserved "in" *> expression)
+    pLetRec = E_LetRec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)
     pFun    = E_Function <$> (reserved "function" *> identifier) <*> (reservedOp "->" *> expression)
     pMF     = const E_MatchFailure <$> reserved "MatchFailure"
 
@@ -149,8 +162,24 @@ module Languages.EnrichedLambda.Parser (expressionParser) where
   expression :: Parser Expr
   expression = choice [try expressionFullApp, expressionPartApp]
 
+  definition :: Parser Definition
+  definition = choice [dLet, dLetRec] where
+    dLet    = D_Let <$> (reserved "let" *> identifier) <*> (reservedOp "=" *> expression)
+    dLetRec = D_LetRec <$> (reserved "letrec" *> letrecBindings)
+
+  instruction :: Parser Instruction
+  instruction = choice [try iex, idf] where
+    iex = IEX <$> expression <* reservedOp ";;"
+    idf = IDF <$> definition <* reservedOp ";;"
+
+  program :: Parser Program
+  program = many instruction
+
   runPp :: Parser a -> String -> Either ParseError a
   runPp p = parse (PTok.whiteSpace lang  >> p) ""
+
+  inputParser :: String -> Either ParseError Instruction
+  inputParser = runPp instruction
 
   expressionParser :: String -> Either ParseError Expr
   expressionParser = runPp (expression <* reservedOp ";;")

@@ -58,6 +58,7 @@ module Languages.MiniML.PrettyPrint () where
     show (E_Function ms)    = "function " ++ showMatchings ms
     show (E_Let (p, e1) e2) = "let \n\t" ++ show p ++ " = " ++ show e1 ++ "\nin " ++ show e2
     show (E_LetRec bs e)    = "letrec " ++ showBindings bs ++ "\nin " ++ show e
+    show Null               = ""
 
   instance Show Definition where 
     show (D_Let (p, e)) = "let " ++ show p ++ " = " ++ show e

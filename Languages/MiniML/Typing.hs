@@ -1,11 +1,16 @@
-module Languages.MiniML.Typing (type_of_instruction, type_of_expression, type_of_program) where
+{-# LANGUAGE
+  FlexibleContexts
+  #-}
+
+module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_program) where
+  import Languages.MiniML.Errors
+  import Languages.MiniML.Kinding
+  import Languages.MiniML.State
   import Languages.MiniML.Syntax
   import Languages.MiniML.PrettyPrint
-  import Languages.MiniML.Kinding
-  import Languages.MiniML.Errors
 
-  fresh_type_var :: [TypeVar] -> TypeVar
-  fresh_type_var = ("a" ++).show.length
+  import Control.Monad.Error
+  import Control.Monad.State
 
   names_distinct :: [ValueName] -> Bool
   names_distinct []     = True
@@ -16,209 +21,192 @@ module Languages.MiniML.Typing (type_of_instruction, type_of_expression, type_of
       | x /= z                      = names_distinct' x zs ys
       | otherwise                   = False
 
-  type_of_constant :: [TypeVar] -> Constant -> (([TypeVar], Constraints, SimpleConstraints), TypeExpr)
-  type_of_constant vs (C_Int n) = ((vs,   [], []), TE_Constr [] Int)
-  type_of_constant vs C_False   = ((vs,   [], []), TE_Constr [] Bool)
-  type_of_constant vs C_True    = ((vs,   [], []), TE_Constr [] Bool)
-  type_of_constant vs C_Nil     = ((v:vs, [], []), TE_Constr [TE_Var v] List) where
-    v = fresh_type_var vs
-  type_of_constant vs C_Unit    = ((vs,   [], []), TE_Constr [] Unit)
+  get_names :: Pattern -> [ValueName]
+  get_names (P_Val x)      = [x]
+  get_names (P_Tuple es)   = concatMap get_names es
+  get_names (P_Cons p1 p2) = get_names p1 ++ get_names p2
+  get_names _              = []
+
+  type_of_constant :: (MonadState InterpreterState m, MonadError String m) => Constant -> m TypeExpr
+  type_of_constant (C_Int n) = 
+    return $ TE_Constr [] Int
+  type_of_constant C_False   =
+    return $ TE_Constr [] Bool
+  type_of_constant C_True    = 
+    return $ TE_Constr [] Bool
+  type_of_constant C_Nil     = do
+    v <- fresh_type_var
+    return $ TE_Constr [v] List
+  type_of_constant C_Unit    =
+    return $ TE_Constr [] Unit
   
-  type_of_unary_primitive :: [TypeVar] -> UnaryPrim -> (([TypeVar], Constraints, SimpleConstraints), TypeExpr)
-  type_of_unary_primitive vs U_Not     = ((vs,   [], []), TE_Arrow (TE_Constr [] Bool) (TE_Constr [] Bool))
-  type_of_unary_primitive vs U_Ref     = ((v:vs, [], []), TE_Arrow (TE_Var v) (TE_Constr [TE_Var v] Ref)) where
-    v = fresh_type_var vs
-  type_of_unary_primitive vs U_Deref   = ((v:vs, [], []), TE_Arrow (TE_Constr [TE_Var v] Ref) (TE_Var v)) where
-    v = fresh_type_var vs
-  type_of_unary_primitive vs U_I_Minus = ((vs,   [], []), TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int))
+  type_of_unary_primitive :: (MonadState InterpreterState m, MonadError String m) => UnaryPrim -> m TypeExpr
+  type_of_unary_primitive U_Not     = 
+    return $ TE_Arrow (TE_Constr [] Bool) (TE_Constr [] Bool)
+  type_of_unary_primitive U_Ref     = do
+    v <- fresh_type_var
+    return $ TE_Arrow v (TE_Constr [v] Ref)
+  type_of_unary_primitive U_Deref   = do
+    v <- fresh_type_var
+    return $ TE_Arrow (TE_Constr [v] Ref) v
+  type_of_unary_primitive U_I_Minus =
+    return $ TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)
 
-  type_of_binary_primitive :: [TypeVar] -> BinaryPrim -> (([TypeVar], Constraints, SimpleConstraints), TypeExpr)
-  type_of_binary_primitive vs B_Eq      = ((v:vs, [], [TE_Var v]), TE_Arrow (TE_Var v) (TE_Arrow (TE_Var v) (TE_Constr [] Bool))) where
-    v = fresh_type_var vs
-  type_of_binary_primitive vs B_I_Plus  = ((vs,   [], []),         TE_Arrow (TE_Constr [] Int) (TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)))
-  type_of_binary_primitive vs B_I_Minus = ((vs,   [], []),         TE_Arrow (TE_Constr [] Int) (TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)))
-  type_of_binary_primitive vs B_I_Mult  = ((vs,   [], []),         TE_Arrow (TE_Constr [] Int) (TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)))
-  type_of_binary_primitive vs B_I_Div   = ((vs,   [], []),         TE_Arrow (TE_Constr [] Int) (TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)))
-  type_of_binary_primitive vs B_Assign  = ((v:vs, [], []),         TE_Arrow (TE_Constr [TE_Var v] Ref) (TE_Arrow (TE_Var v) (TE_Constr [] Unit))) where
-    v = fresh_type_var vs
+  type_of_binary_primitive :: (MonadState InterpreterState m, MonadError String m) => BinaryPrim -> m TypeExpr
+  type_of_binary_primitive B_Eq      = do
+    v <- fresh_type_var
+    add_simple_constraint v
+    return $ TE_Arrow v $ TE_Arrow v (TE_Constr [] Bool)
+  type_of_binary_primitive B_I_Plus  = 
+    return $ TE_Arrow (TE_Constr [] Int) $ TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)
+  type_of_binary_primitive B_I_Minus =
+    return $ TE_Arrow (TE_Constr [] Int) $ TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)
+  type_of_binary_primitive B_I_Mult  =
+    return $ TE_Arrow (TE_Constr [] Int) $ TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)
+  type_of_binary_primitive B_I_Div   =
+    return $ TE_Arrow (TE_Constr [] Int) $ TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)
+  type_of_binary_primitive B_Assign  = do
+    v <- fresh_type_var
+    return $ TE_Arrow (TE_Constr [v] Ref) $ TE_Arrow v (TE_Constr [] Unit)
 
-  type_and_bindings_of_pattern :: [TypeVar] -> Pattern -> (([TypeVar], Constraints, SimpleConstraints), TypeExpr, Env)
-  type_and_bindings_of_pattern vs (P_Val vn)         = ((v:vs, [], []), TE_Var v, [(vn, TE_Var v)]) where
-    v = fresh_type_var vs
-  type_and_bindings_of_pattern vs P_Wildcard         = ((v:vs, [], []), TE_Var v, []) where
-    v = fresh_type_var vs
-  type_and_bindings_of_pattern vs (P_Const c)        = ((vs', c', s'), tp, []) where
-    ((vs', c', s'), tp) = type_of_constant vs c
-  -- parser ensures that there are at least two elems in a tuple
-  type_and_bindings_of_pattern vs (P_Tuple (p:ps))   = ((vs'', c'', s''), TE_Tuple $ reverse tes, e'') where
-    ((vs', c', s'), tp, e')      = type_and_bindings_of_pattern vs p
-    ((vs'', c'', s''), tes, e'') = foldl generate ((vs', c', s'), [tp], e') ps
-    generate :: (([TypeVar], Constraints, SimpleConstraints), [TypeExpr], Env) -> Pattern -> (([TypeVar], Constraints, SimpleConstraints), [TypeExpr], Env)
-    generate ((vs, cs, sc), ts, e) p = ((vs', cs' ++ cs, sc' ++ sc), tp:ts, e' ++ e) where
-      ((vs', cs', sc'), tp, e') = type_and_bindings_of_pattern vs p
-  type_and_bindings_of_pattern vs (P_Cons p1 p2)     = ((vs'', (te2, TE_Constr [te1] List):(cs1 ++ cs2), sc1 ++ sc2), te2, e1 ++ e2) where
-    ((vs',  cs1, sc1), te1, e1) = type_and_bindings_of_pattern vs p1
-    ((vs'', cs2, sc2), te2, e2) = type_and_bindings_of_pattern vs' p2
-
-  type_of_function :: [TypeVar] -> Env -> [(Pattern, Expr)] -> Either String (([TypeVar], Constraints, SimpleConstraints), TypeExpr)
-  -- parser ensures that there is at least one clause
-  type_of_function vs env ((p,e):ps) =
-    case type_of_expression vs' (env ++ envp) e of
-      Left err                                       -> Left err
-      Right ((vse', cse1, sce1), tee)                ->
-        case foldl generate (Right ((vse', cse1 ++ csp1, sce1 ++ scp1), [TE_Arrow tep tee])) ps of
-          Left err                                   -> Left err
-          Right ((vsf, csf, scf), (te:tes))          -> Right ((vsf, csf ++ map ((,) te) tes, scf), te)
-        where
-          generate :: Either String (([TypeVar], Constraints, SimpleConstraints), [TypeExpr]) -> (Pattern, Expr) -> Either String (([TypeVar], Constraints, SimpleConstraints), [TypeExpr])
-          generate (Left err)                 _      = Left err
-          generate (Right ((vs, cs, sc), ts)) (p, e) =
-            case type_of_expression vs' (env ++ env') e of
-              Left err                        -> Left err
-              Right ((vs'', cs'', sc''), tpe) -> Right ((vs'', cs'' ++ cs' ++ cs, sc'' ++ sc' ++ sc), (TE_Arrow tpp tpe):ts)
-            where
-              ((vs', cs', sc'), tpp, env') = type_and_bindings_of_pattern vs p
+  type_and_bindings_of_pattern  :: (MonadState InterpreterState m, MonadError String m) => Pattern -> m TypeExpr
+  type_and_bindings_of_pattern p
+    | names_distinct $ get_names p = type_and_bindings_of_pattern' p
+    | otherwise                    = throwError $ non_distinct_names p
     where
-      ((vs', csp1, scp1), tep, envp) = type_and_bindings_of_pattern vs p
+      type_and_bindings_of_pattern' :: (MonadState InterpreterState m, MonadError String m) => Pattern -> m TypeExpr
+      type_and_bindings_of_pattern' (P_Val x)      = do
+        v <- fresh_type_var
+        extend_typing_env x v
+        return $ v
+      type_and_bindings_of_pattern' P_Wildcard     =
+        fresh_type_var
+      type_and_bindings_of_pattern' (P_Const c)    =
+        type_of_constant c
+      type_and_bindings_of_pattern' (P_Tuple es)   = do
+        ts <- mapM type_and_bindings_of_pattern es
+        return $ TE_Tuple ts
+      type_and_bindings_of_pattern' (P_Cons p1 p2) = do
+        t1 <- type_and_bindings_of_pattern' p1
+        t2 <- type_and_bindings_of_pattern' p2
+        add_constraint t2 $ TE_Constr [t1] List
+        return t2
 
-  type_of_expression :: [TypeVar] -> Env -> Expr -> Either String (([TypeVar], Constraints, SimpleConstraints), TypeExpr)
-  type_of_expression vs env (E_UPrim up)               = Right $ type_of_unary_primitive vs up
-  type_of_expression vs env (E_BPrim bp)               = Right $ type_of_binary_primitive vs bp
-  type_of_expression vs env (E_Val vn)                 =
-    case vn `lookup` env of
-      Nothing                                         -> Left $ unbound_variable vn
-      Just tp                                         -> Right ((vs, [], []), tp)
-  type_of_expression vs env (E_Const c)                = Right $ type_of_constant vs c
-  type_of_expression vs env (E_Apply e1 e2)            =
-    case type_of_expression vs env e1 of
-      Left err                                        -> Left err
-      Right ((vs', cs1, sc1), tp1)                    ->
-        case type_of_expression vs' env e2 of
-          Left err                                    -> Left err
-          Right ((vs'', cs2, sc2), tp2)               -> Right ((v:vs'', (tp1, TE_Arrow tp2 (TE_Var v)):(cs1 ++ cs2), sc1 ++ sc2), TE_Var v) where
-            v = fresh_type_var vs''
-  type_of_expression vs env (E_Cons e1 e2)             =
-    case type_of_expression vs env e1 of
-      Left err                                        -> Left err
-      Right ((vs', cs1, sc1), tp1)                    ->
-        case type_of_expression vs' env e2 of
-          Left err                                    -> Left err
-          Right ((vs'', cs2, sc2), tp2)               -> Right ((vs'', (tp2, TE_Constr [tp1] List):(cs1 ++ cs2), sc1 ++ sc2), tp2)
-  -- parser ensures that there are at least two elems in a tuple
-  type_of_expression vs env (E_Tuple (e:es))          =
-    case type_of_expression vs env e of
-      Left err                                       -> Left err
-      Right ((vs', c', s'), tp)                      ->
-        case foldl generate (Right ((vs', c', s'), [tp])) es of
-          Left err                                   -> Left err
-          Right ((vs'', c'', s''), tes)              -> Right ((vs'', c'', s''), TE_Tuple $ reverse tes)
-        where
-          generate :: Either String (([TypeVar], Constraints, SimpleConstraints), [TypeExpr]) -> Expr -> Either String (([TypeVar], Constraints, SimpleConstraints), [TypeExpr])
-          generate (Left err)                 _ = Left err
-          generate (Right ((vs, cs, sc), ts)) e =
-            case type_of_expression vs env e of
-              Left err                    -> Left err
-              Right ((vs', cs', sc'), tp) -> Right ((vs', cs' ++ cs, sc' ++ sc), tp:ts)
-  type_of_expression vs env (E_And e1 e2)             =
-    case type_of_expression vs env e1 of
-      Left err                                       -> Left err
-      Right ((vs', cs1, sc1), tp1)                   ->
-        case type_of_expression vs' env e2 of
-          Left err                                   -> Left err
-          Right ((vs'', cs2, sc2), tp2)              -> Right ((vs'', (tp1, TE_Constr [] Bool):(tp2, TE_Constr [] Bool):(cs1 ++ cs2), sc1 ++ sc2), tp2)
-  type_of_expression vs env (E_Or e1 e2)              =
-    case type_of_expression vs env e1 of
-      Left err                                       -> Left err
-      Right ((vs', cs1, sc1), tp1)                   ->
-        case type_of_expression vs' env e2 of
-          Left err                                   -> Left err
-          Right ((vs'', cs2, sc2), tp2)              -> Right ((vs'', (tp1, TE_Constr [] Bool):(tp2, TE_Constr [] Bool):(cs1 ++ cs2), sc1 ++ sc2), tp2)
-  type_of_expression vs env (E_ITE e1 e2 e3)          =
-    case type_of_expression vs env e1 of
-      Left err                                       -> Left err
-      Right ((vs', cs1, sc1), tp1)                   ->
-        case type_of_expression vs' env e2 of
-          Left err                                   -> Left err
-          Right ((vs'', cs2, sc2), tp2)              ->
-            case type_of_expression vs'' env e3 of
-              Left err                               -> Left err
-              Right ((vs''', cs3, sc3), tp3)         -> Right ((vs''', (tp1, TE_Constr [] Bool):(tp2, tp3):(cs1 ++ cs2 ++ cs3), sc1 ++ sc2 ++ sc3), tp2)
-  type_of_expression vs env (E_Seq e1 e2)             =
-    case type_of_expression vs env e1 of
-      Left err                                       -> Left err
-      Right ((vs', cs1, sc1), tp1)                   ->
-        case type_of_expression vs' env e2 of
-          Left err                                   -> Left err
-          Right ((vs'', cs2, sc2), tp2)              -> Right ((vs'', (tp1, TE_Constr [] Unit):(cs1 ++ cs2), sc1 ++ sc2), tp2)
-  type_of_expression vs env (E_Function ps)           = type_of_function vs env ps
-  type_of_expression vs env (E_Let (p, e1) e2)        =
-    case type_of_expression vs env e1 of
-      Left err                                       -> Left err
-      Right ((vs', cs1, sc1), tp1)                   ->
-        case type_of_expression vs'' (env' ++ env) e2 of
-          Left err                                   -> Left err
-          Right ((vs''', cs2, sc2), tp2)             -> Right ((vs''', (tp1, tpp):(cs1 ++ cs2 ++ csp), sc1 ++ sc2 ++ scp), tp2)
-        where
-          ((vs'', csp, scp), tpp, env') = type_and_bindings_of_pattern vs' p
-  -- parser ensures that there is at least one clause
-  type_of_expression vs env expr@(E_LetRec bs@((vn, f):fs) e)
-    | not (names_distinct $ map fst bs)               = Left $ non_distinct_names expr
-    | otherwise                                       =
-      case type_of_function vs' env' f of
-        Left err                                     -> Left err
-        Right ((vs'', cs'', sc''), te'')             ->
-          case foldl generate (Right ((vs'', cs'', sc''), [te''])) fs of
-            Left err                                 -> Left err
-            Right ((vs''', cs''', sc'''), tes)       ->
-              case type_of_expression vs''' env' e of
-                Left err                             -> Left err
-                Right ((vse, cse, sce), tee)         -> Right ((vse, (zip tes $ map TE_Var vs') ++ cse ++ cs''', sce ++ sc'''), tee)
-          where
-            generate :: Either String (([TypeVar], Constraints, SimpleConstraints), [TypeExpr]) -> (ValueName, [(Pattern, Expr)]) -> Either String (([TypeVar], Constraints, SimpleConstraints), [TypeExpr])
-            generate (Left err)                 _      = Left err
-            generate (Right ((vs, cs, sc), ts)) (v, f) =
-              case type_of_function vs env' f of
-                Left err                              -> Left err
-                Right ((vs', cs', sc'), tp)           -> Right ((vs', cs' ++ cs, sc' ++ sc), tp:ts)
-      where
-        (env', vs') = foldl (\(e, v) (vn, _) -> let f = fresh_type_var v in ((vn, TE_Var f):e, f:v)) (env, vs) bs
+  recfun :: (MonadError String m, MonadState InterpreterState m) => [LetRecBinding] -> m ()
+  recfun lrbs = recfun' (map fst lrbs) lrbs [] [] where
+    recfun' :: (MonadError String m, MonadState InterpreterState m) => [ValueName] -> [LetRecBinding] -> [TypeExpr] -> [TypeExpr] -> m ()
+    recfun' []     []             ts1 ts2 = add_bindings_constraints $ zip ts1 ts2
+    recfun' []     ((n, bs):lrbs) ts1 ts2 = do
+      tp <- type_of_function bs
+      recfun' [] lrbs ts1 (tp:ts2)
+    recfun' (n:ns) lrbs           ts1 ts2 = do
+      t <- fresh_type_var
+      extend_typing_env n t
+      recfun' ns lrbs (t:ts1) ts2
+    add_bindings_constraints :: (MonadError String m, MonadState InterpreterState m) => [(TypeExpr, TypeExpr)] -> m ()
+    add_bindings_constraints []            = return ()
+    add_bindings_constraints ((t1, t2):ts) = do
+      add_constraint t1 t2
+      add_bindings_constraints ts
 
-  type_of_definition :: [TypeVar] -> Env -> Definition -> Either String (([TypeVar], Constraints, SimpleConstraints), Env)
-  type_of_definition vs env (D_Let (p, e)) =
-    case type_of_expression vs env e of
-      Left err                                       -> Left err
-      Right ((vs', cs1, sc1), tp1)                   -> Right ((vs'', (tp1, tpp):(cs1 ++ csp), sc1 ++ scp), env')
-        where
-          ((vs'', csp, scp), tpp, env') = type_and_bindings_of_pattern vs' p
-  type_of_definition vs env def@(D_LetRec bs@((vn, f):fs))
-    | not (names_distinct $ map fst bs)               = Left $ non_distinct_names def
-    | otherwise                                       =
-      case type_of_function vs' env' f of
-        Left err                                     -> Left err
-        Right ((vs'', cs'', sc''), te'')             ->
-          case foldl generate (Right ((vs'', cs'', sc''), [te''])) fs of
-            Left err                                 -> Left err
-            Right ((vs''', cs''', sc'''), tes)       -> Right ((vs''', (zip tes $ map TE_Var vs') ++ cs''', sc'''), env')
-          where
-            generate :: Either String (([TypeVar], Constraints, SimpleConstraints), [TypeExpr]) -> (ValueName, [(Pattern, Expr)]) -> Either String (([TypeVar], Constraints, SimpleConstraints), [TypeExpr])
-            generate (Left err)                 _      = Left err
-            generate (Right ((vs, cs, sc), ts)) (v, f) =
-              case type_of_function vs env' f of
-                Left err                              -> Left err
-                Right ((vs', cs', sc'), tp)           -> Right ((vs', cs' ++ cs, sc' ++ sc), tp:ts)
-      where
-        (env', vs') = foldl (\(e, v) (vn, _) -> let f = fresh_type_var v in ((vn, TE_Var f):e, f:v)) (env, vs) bs
+  type_of_function :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> m TypeExpr
+  type_of_function bs = type_of_function' bs [] where
+    type_of_function' :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> [TypeExpr] -> m TypeExpr
+    type_of_function' []          acc = add_function_constraints acc
+    type_of_function' ((p, e):es) acc = do
+      env <- get_typing_env
+      t1  <- type_and_bindings_of_pattern p
+      t2  <- type_of_expression e
+      reset_typing_env env
+      type_of_function' es ((TE_Arrow t1 t2):acc)
+    add_function_constraints :: (MonadError String m, MonadState InterpreterState m) => [TypeExpr] -> m TypeExpr
+    add_function_constraints [t]        = return t
+    add_function_constraints (t1:t2:ts) = do 
+      add_constraint t1 t2
+      add_function_constraints (t2:ts)
 
-  type_of_instruction :: [TypeVar] -> Env -> Instruction -> Either String (([TypeVar], Constraints, SimpleConstraints), Env)
-  type_of_instruction vs env (IDF df) = type_of_definition vs env df
-  type_of_instruction vs env (IEX ex) = case type_of_expression vs env ex of
-    Left err                         -> Left err
-    Right ((vs', cs', scs'), te)     -> Right ((vs', cs', scs'), [("it", te)])
+  type_of_expression :: (MonadError String m, MonadState InterpreterState m) => Expr -> m TypeExpr
+  type_of_expression (E_UPrim up)       =
+    type_of_unary_primitive up
+  type_of_expression (E_BPrim bp)       =
+    type_of_binary_primitive bp
+  type_of_expression (E_Val v)          = do
+    env <- get_typing_env
+    case env v of 
+      Nothing -> throwError $ unbound_variable v
+      Just t  -> return t
+  type_of_expression (E_Const c)        =
+    type_of_constant c
+  type_of_expression (E_Apply e1 e2)    = do
+    t1 <- type_of_expression e1
+    t2 <- type_of_expression e2
+    tv <- fresh_type_var
+    add_constraint t1 (TE_Arrow t2 tv)
+    return tv
+  type_of_expression (E_Cons e1 e2)     = do
+    t1 <- type_of_expression e1
+    t2 <- type_of_expression e2
+    add_constraint t2 (TE_Constr [t1] List)
+    return t2
+  type_of_expression (E_Tuple es)       = do
+    ts <- mapM type_of_expression es
+    return $ TE_Tuple ts
+  type_of_expression (E_And e1 e2)      = do
+    t1 <- type_of_expression e1
+    t2 <- type_of_expression e2
+    add_constraint t1 $ TE_Constr [] Bool
+    add_constraint t2 $ TE_Constr [] Bool
+    return $ TE_Constr [] Bool
+  type_of_expression (E_Or e1 e2)       = do
+    t1 <- type_of_expression e1
+    t2 <- type_of_expression e2
+    add_constraint t1 $ TE_Constr [] Bool
+    add_constraint t2 $ TE_Constr [] Bool
+    return $ TE_Constr [] Bool
+  type_of_expression (E_ITE e1 e2 e3)   = do
+    t1 <- type_of_expression e1
+    t2 <- type_of_expression e2
+    t3 <- type_of_expression e3
+    add_constraint t1 $ TE_Constr [] Bool
+    add_constraint t2 t3
+    return t3 
+  type_of_expression (E_Seq e1 e2)      = do
+    t1 <- type_of_expression e1
+    t2 <- type_of_expression e2
+    add_constraint t1 $ TE_Constr [] Unit
+    return t2
+  type_of_expression (E_Function bs)    = do
+    type_of_function bs
+  type_of_expression (E_Let (p, e1) e2) = do
+    env <- get_typing_env
+    tp  <- type_and_bindings_of_pattern p
+    t1  <- type_of_expression e1
+    add_constraint tp t1
+    t2  <- type_of_expression e2
+    reset_typing_env env
+    return t2
+  type_of_expression (E_LetRec lrbs e2) = do
+    env <- get_typing_env
+    recfun lrbs
+    t2 <- type_of_expression e2
+    reset_typing_env env
+    return t2
 
-  type_of_program :: [TypeVar] -> Env -> Program -> Either String (([TypeVar], Constraints, SimpleConstraints), Env)
-  type_of_program = type_of_program' [] [] where
-    type_of_program' cs scs vs env []            = Right ((vs, cs, scs), env)
-    type_of_program' cs scs vs env (i:is)        =
-      case type_of_instruction vs env i of
-        Left err                        -> Left err
-        Right ((vs', cs', scs'), env')  -> type_of_program' (cs' ++ cs) (scs' ++ scs) vs' (env' ++ env) is
+  type_of_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
+  type_of_definition (D_Let (p, e))  = do
+    tp <- type_and_bindings_of_pattern p
+    te <- type_of_expression e
+    add_constraint tp te
+  type_of_definition (D_LetRec lrbs) = recfun lrbs
+
+  type_of_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
+  type_of_instruction (IDF df) = type_of_definition df
+  type_of_instruction (IEX ex) = do
+    t <- type_of_expression ex
+    extend_typing_env "it" t
+
+  type_of_program :: (MonadState InterpreterState m, MonadError String m) => Program -> m ()
+  type_of_program []     = return ()
+  type_of_program (i:is) = do
+    type_of_instruction i
+    type_of_program is

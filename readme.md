@@ -8,12 +8,19 @@ Implementing MiniML compiler to simple asembly language.
 
 Currently working on
 ====================
-* Assembly language (see feature/languages/assembly)
-* Code refactoring  (see feature/refactoring)
+* Graph Code Language (see feature/graph-code)
 
 Changelog
 =========
-*  6 VIII 2012 - [others]    Cleanup, introducing git flow, readme creation
+* 18 VIII 2012 - [Compiler]  Finished transaltion from Enriched Lambda Calculus to Enriched Lambda Calculus With Low Level Types
+* 18 VIII 2012 - [Languages] Added definitions to Enriched Lambda Calculus With Low Level Types
+* 18 VIII 2012 - [Others]    Enriched Lambda Calculus interpreter now uses record as sate
+* 18 VIII 2012 - [Languages] MiniML interpreter reimplemented using monads
+* 15 VIII 2012 - [Compiler]  Finished transaltion from MiniML to Enriched Lambda Calculus
+* 11 VIII 2012 - [Compiler]  Enforcing unique variable naming
+* 11 VIII 2012 - [Languages] Mutually recursive letrec in Enriched Lambda Calculus
+*  7 VIII 2012 - [Languages] Added definitions to Enriched Lambda Calculus
+*  6 VIII 2012 - [Others]    Cleanup, introducing git flow, readme creation
 * 10   VI 2012 - [Languages] Working version of Enriched Lambda Calculus With Low Level Types Interpreter
 *  7   VI 2012 - [Compiler]  Translation from Enriched Lambda Calculus to Enriched Lambda Calculus With Low Level Types
 * 27    V 2012 - [Compiler]  Translation from MiniML to Enriched Lambda Calculus

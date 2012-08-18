@@ -1,6 +1,7 @@
 {-# LANGUAGE
   FlexibleContexts,
-  TypeSynonymInstances
+  TypeSynonymInstances,
+  FlexibleInstances
   #-}
 
 module Languages.EnrichedLambdaLowLevelTypes.State where
