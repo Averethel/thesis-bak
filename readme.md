@@ -13,8 +13,8 @@ Currently working on
     1. Translation improvemets
         * ~~enforce unique functions / variable names~~
         * ~~update MiniML -> Enriched Lambda Calculus translation to handle definitions~~
-        * update Enriched Lambda Calculus -> Enriched Lambda Calculus With Low Level Types translation to handle definitions
-        * move all definitions to the beginning of the program
+        * ~~update Enriched Lambda Calculus -> Enriched Lambda Calculus With Low Level Types translation to handle definitions~~
+        * ~~move all definitions to the beginning of the program~~
     2. Other improvements
         * ~~state monad in MiniML interpreter~~
         * ~~use record for state in Enriched Lambda Calculus interpreter~~
@@ -26,6 +26,7 @@ Currently working on
 
 Changelog
 =========
+* 18 VIII 2012 - [Compiler]  Finished transaltion from Enriched Lambda Calculus to Enriched Lambda Calculus With Low Level Types
 * 18 VIII 2012 - [Languages] Added definitions to Enriched Lambda Calculus With Low Level Types
 * 18 VIII 2012 - [Others]    Enriched Lambda Calculus interpreter now uses record as sate
 * 18 VIII 2012 - [Languages] MiniML interpreter reimplemented using monads
