@@ -26,9 +26,9 @@ module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr, eval_program) w
   eval_unary_prim U_Not (E_Const C_True) = return $ E_Const C_False
   eval_unary_prim U_Not (E_Const C_False) = return $ E_Const C_True
   eval_unary_prim U_Ref e = do
-    l <- alloc_addr e
+    l <- store e
     return $ E_Location l
-  eval_unary_prim U_Deref (E_Location l) = lookup_mem l
+  eval_unary_prim U_Deref (E_Location l) = load l
   eval_unary_prim U_Fst (E_Pair e _) = return e
   eval_unary_prim U_Snd (E_Pair _ e) = return e
   eval_unary_prim U_Head (E_Cons e _) = return e
@@ -52,7 +52,7 @@ module Languages.EnrichedLambda.Eval (eval_expr, eval_step_expr, eval_program) w
     | otherwise = throwError $ division_by_0
   eval_binary_prim B_Mult (E_Const (C_Int n1)) (E_Const (C_Int n2)) = return $ E_Const $ C_Int $ n1 * n2
   eval_binary_prim B_Assign (E_Location a) v = do
-    update_mem a v
+    store_at a v
     return $ E_Const $ C_Unit
   
   recfun :: (MonadState InterpreterState m) => [(String, Expr)] -> m ()
