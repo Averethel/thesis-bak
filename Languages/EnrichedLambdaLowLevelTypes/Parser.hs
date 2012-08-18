@@ -1,4 +1,4 @@
-module Languages.EnrichedLambdaLowLevelTypes.Parser where
+module Languages.EnrichedLambdaLowLevelTypes.Parser (naturalParser, inputParser, expressionParser, program) where
   import Languages.EnrichedLambdaLowLevelTypes.Syntax
   import Languages.EnrichedLambdaLowLevelTypes.PrettyPrint
   
@@ -162,9 +162,28 @@ module Languages.EnrichedLambdaLowLevelTypes.Parser where
 
   expression :: Parser Expr
   expression = choice [try expressionFullApp, expressionPartApp]
-  
+
+  definition :: Parser Definition
+  definition = choice [dLet, dLetRec] where
+    dLet    = D_Let <$> (reserved "let" *> identifier) <*> (reservedOp "=" *> expression)
+    dLetRec = D_LetRec <$> (reserved "letrec" *> letrecBindings)
+
+  instruction :: Parser Instruction
+  instruction = choice [try iex, idf] where
+    iex = IEX <$> expression <* reservedOp ";;"
+    idf = IDF <$> definition <* reservedOp ";;"
+
+  program :: Parser Program
+  program = many instruction
+
   runPp :: Parser a -> String -> Either ParseError a
   runPp p = parse (PTok.whiteSpace lang  >> p) ""
-  
+
+  inputParser :: String -> Either ParseError Instruction
+  inputParser = runPp instruction  
+
+  naturalParser :: String -> Either ParseError Integer
+  naturalParser = runPp natural
+
   expressionParser :: String -> Either ParseError Expr
   expressionParser = runPp (expression <* reservedOp ";;")

@@ -61,6 +61,16 @@ module Languages.EnrichedLambdaLowLevelTypes.Syntax where
     | T_Pair Type Type
     | T_Arrow Type Type
     deriving Eq
+
+  data Definition =
+      D_Let String Expr
+    | D_LetRec [(String, Expr)]
+
+  data Instruction =
+      IDF Definition
+    | IEX Expr
+
+  type Program = [Instruction]
   
   is_binary :: Prim -> Bool
   is_binary P_AllocPair = True

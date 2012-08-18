@@ -2,7 +2,7 @@
   FlexibleContexts
   #-}
 
-module Languages.EnrichedLambdaLowLevelTypes.Typing where
+module Languages.EnrichedLambdaLowLevelTypes.Typing (type_of_expression, type_of_definition, type_of_program) where
   import Languages.EnrichedLambdaLowLevelTypes.Errors
   import Languages.EnrichedLambdaLowLevelTypes.PrettyPrint
   import Languages.EnrichedLambdaLowLevelTypes.State
@@ -151,3 +151,24 @@ module Languages.EnrichedLambdaLowLevelTypes.Typing where
   type_of_expression E_MatchFailure    = do
     tv <- fresh_type_var
     return tv
+
+  type_of_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
+  type_of_definition (D_Let v e)     = do
+    t <- type_of_expression e
+    extend_typing_env v t
+  type_of_definition (D_LetRec lrbs) = 
+    recfun lrbs
+
+  type_of_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
+  type_of_instruction (IDF df) = 
+    type_of_definition df
+  type_of_instruction (IEX ex) = do
+    t <- type_of_expression ex
+    extend_typing_env "it" t
+
+  type_of_program :: (MonadError String m, MonadState InterpreterState m) => Program -> m ()
+  type_of_program []     = 
+    return ()
+  type_of_program (i:is) = do
+    type_of_instruction i
+    type_of_program is

@@ -60,3 +60,14 @@ module Languages.EnrichedLambdaLowLevelTypes.PrettyPrint () where
     show (T_Arrow t1@(T_Arrow _ _) t2) = "( " ++ show t1 ++ " ) -> " ++ show t2
     show (T_Arrow t1 t2)               = show t1 ++ " -> " ++ show t2
     show (T_Ref t)                     = show t ++ " Ref"
+
+  instance Show Definition where 
+    show (D_Let v e)    = "let " ++ v ++ " = " ++ show e
+    show (D_LetRec lrbs) = "letrec " ++ showBindings lrbs
+
+  instance Show Instruction where
+    show (IDF df) = show df
+    show (IEX ex) = show ex
+
+    showList []     c = c
+    showList (i:is) c = show i ++ ";;\n" ++ showList is c
