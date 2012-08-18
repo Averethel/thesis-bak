@@ -3,7 +3,7 @@ module Languages.MiniML.Errors
    invalid,
    unbound_variable,
    non_distinct_names,
-   non_simple_type,
+   cannot_compare,
    cannot_unify,
    division_by_0,
    match_failure,
@@ -12,8 +12,11 @@ module Languages.MiniML.Errors
    parse_error,
    parse_error_file,
    eval_error,
-   eval_error_file
+   eval_error_file,
+   memory_full
   ) where
+  memory_full = "Memory full"
+
   too_many_arguments what e1 e2 = what ++ " " ++ show e1 ++ " is applied to to many arguments in: " ++ show e2
 
   invalid what expr expected (subexpr, actual) = "Invalid " ++ show what ++ " in: " ++ show expr ++
@@ -25,7 +28,7 @@ module Languages.MiniML.Errors
 
   non_distinct_names expr = "Non distinct names in: " ++ show expr
 
-  non_simple_type te = "Cannot compare expressions of non simple type: " ++ show te
+  cannot_compare te = "Cannot compare expressions of non simple type: " ++ show te
 
   cannot_unify (te1, te2) = "Cannot unify: " ++ show te1 ++ "\n\twith: " ++ show te2
 
