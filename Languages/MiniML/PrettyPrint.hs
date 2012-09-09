@@ -5,11 +5,11 @@ module Languages.MiniML.PrettyPrint () where
   showTuple [x]    = show x
   showTuple (x:xs) = show x ++ ", " ++ showTuple xs
 
-  showMatchings []         = ""
-  showMatchings ((p,e):ms) = "\n\t|" ++ show p ++ " -> " ++ show e ++ showMatchings ms
+  showMatchings sep []         = ""
+  showMatchings sep ((p,e):ms) = "\n\t|" ++ show p ++ " " ++ sep ++ " " ++ show e ++ showMatchings sep ms
 
   showBindings []            = []
-  showBindings ((vn, ms):bs) = "\n\t" ++ vn ++ " = " ++ showMatchings ms ++ showBindings bs
+  showBindings ((vn, ms):bs) = "\n\t" ++ vn ++ " = " ++ showMatchings "->" ms ++ showBindings bs
 
   instance Show Constant where
     show (C_Int n) = show n
@@ -54,15 +54,15 @@ module Languages.MiniML.PrettyPrint () where
     show (E_And e1 e2)      = show e1 ++ " && " ++ show e2
     show (E_Or e1 e2)       = show e1 ++ " || " ++ show e2
     show (E_ITE e1 e2 e3)   = "if ( " ++ show e1 ++ " ) then { " ++ show e2 ++ " } else { " ++ show e3 ++ " }"
-    show (E_Case e1 ms)     = "case " ++ show e1 ++ " of " ++ showMatchings ms
+    show (E_Case e1 ms)     = "case " ++ show e1 ++ " of " ++ showMatchings "->" ms
     show (E_Seq e1 e2)      = show e1 ++ "; " ++ show e2
-    show (E_Function ms)    = "function " ++ showMatchings ms
-    show (E_Let (p, e1) e2) = "let \n\t" ++ show p ++ " = " ++ show e1 ++ "\nin " ++ show e2
+    show (E_Function ms)    = "function " ++ showMatchings "->" ms
+    show (E_Let bs e2) = "let \n\t" ++ showMatchings "=" bs ++ "\nin " ++ show e2
     show (E_LetRec bs e)    = "letrec " ++ showBindings bs ++ "\nin " ++ show e
     show Null               = ""
 
   instance Show Definition where 
-    show (D_Let (p, e)) = "let " ++ show p ++ " = " ++ show e
+    show (D_Let bs) = "let " ++ showMatchings "=" bs
     show (D_LetRec bs)  = "letrec " ++ showBindings bs
 
     showList []     c = c

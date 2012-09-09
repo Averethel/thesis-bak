@@ -57,13 +57,13 @@ module Languages.MiniML.Syntax where
     | E_Case Expr [Binding]
     | E_Seq Expr Expr
     | E_Function [Binding]
-    | E_Let Binding Expr
+    | E_Let [Binding] Expr
     | E_LetRec [LetRecBinding] Expr
     | Null -- for memory emptiness
     deriving Eq
 
   data Definition =
-      D_Let (Pattern, Expr)
+      D_Let [Binding]
     | D_LetRec [LetRecBinding]
     deriving Eq
 

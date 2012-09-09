@@ -125,6 +125,15 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
       add_constraint t1 t2
       add_function_constraints (t2:ts)
 
+  type_of_bindings :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> m ()
+  type_of_bindings []          =
+    return ()
+  type_of_bindings ((p, e):bs) = do
+    tp  <- type_and_bindings_of_pattern p
+    te  <- type_of_expression e
+    add_constraint tp te
+    type_of_bindings bs
+
   type_of_expression :: (MonadError String m, MonadState InterpreterState m) => Expr -> m TypeExpr
   type_of_expression (E_UPrim up)       =
     type_of_unary_primitive up
@@ -182,11 +191,9 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
     return t2
   type_of_expression (E_Function bs)    = do
     type_of_function bs
-  type_of_expression (E_Let (p, e1) e2) = do
+  type_of_expression (E_Let bs e2)      = do
     env <- get_typing_env
-    tp  <- type_and_bindings_of_pattern p
-    t1  <- type_of_expression e1
-    add_constraint tp t1
+    type_of_bindings bs
     t2  <- type_of_expression e2
     reset_typing_env env
     return t2
@@ -198,10 +205,7 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
     return t2
 
   type_of_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
-  type_of_definition (D_Let (p, e))  = do
-    tp <- type_and_bindings_of_pattern p
-    te <- type_of_expression e
-    add_constraint tp te
+  type_of_definition (D_Let bs)      = type_of_bindings bs
   type_of_definition (D_LetRec lrbs) = recfun lrbs
 
   type_of_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()

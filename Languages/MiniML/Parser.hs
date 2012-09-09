@@ -102,6 +102,12 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
                       rest  <- many (reservedOp "|" *> prePatternMatching s)
                       return $ first:rest
 
+  letBindings :: Parser [(Pattern, Expr)]
+  letBindings = do
+                  first <- prePatternMatching "="
+                  rest  <- many (reserved "and" *> prePatternMatching "=")
+                  return $ first:rest
+
   preLetRec :: Parser (ValueName, [(Pattern, Expr)])
   preLetRec = do
                 i <- identifier
@@ -141,7 +147,7 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
     eITE       = E_ITE <$> (reserved "if" *> expression) <*> (reserved "then" *> expression) <*> (reserved "else" *> expression)
     eCase      = E_Case <$> (reserved "case" *> expression) <*> (reserved "of" *> patternMatching "->")
     eFunction  = E_Function <$> (reserved "function" *> patternMatching "->")
-    eLet       = E_Let <$> (reserved "let" *> prePatternMatching "=") <*> (reserved "in" *> expression)
+    eLet       = E_Let <$> (reserved "let" *> letBindings) <*> (reserved "in" *> expression)
     eLetRec    = E_LetRec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)
     eUprim     = E_UPrim <$> (angles $ unaryPrim)
     eBprim     = E_BPrim <$> (angles $ binaryPrim)
@@ -180,7 +186,7 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
 
   definition :: Parser Definition
   definition = choice [dLet, dLetRec] where
-    dLet    = D_Let <$> (reserved "let" *> prePatternMatching "=")
+    dLet    = D_Let <$> (reserved "let" *> letBindings)
     dLetRec = D_LetRec <$> (reserved "letrec" *> letrecBindings)
 
   instruction :: Parser Instruction

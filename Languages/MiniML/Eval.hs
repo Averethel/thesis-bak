@@ -181,13 +181,15 @@ module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
     eval_function pm e2
   eval_step_expr (E_Tuple es)                           =
     eval_step_tuple es []
-  eval_step_expr (E_Let (p, e1) e2)
+  eval_step_expr (E_Let [] e2)                          =
+    return e2
+  eval_step_expr (E_Let ((p, e1):bs) e2)
     | not . is_value $ e1                               = do
       e1' <- eval_step_expr e1
-      return $ E_Let (p, e1') e2
+      return $ E_Let ((p, e1'):bs) e2
     | is_value e1                                       = do
       matches_of_pattern p e1
-      return e2
+      return $ E_Let bs e2
   eval_step_expr (E_LetRec lrbs e)                      = do
     recfun lrbs
     return e
@@ -200,10 +202,13 @@ module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
       eval_expr e'
 
   eval_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
-  eval_definition (D_Let (p, e))    = do
+  eval_definition (D_Let [])          =
+    return ()
+  eval_definition (D_Let ((p, e):bs)) = do
     e' <- eval_expr e
     matches_of_pattern p e'
-  eval_definition (D_LetRec lrbs)   = 
+    eval_definition $ D_Let bs
+  eval_definition (D_LetRec lrbs)     = 
     recfun lrbs
 
   eval_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
