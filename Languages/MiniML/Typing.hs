@@ -169,7 +169,12 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
     t3 <- type_of_expression e3
     add_constraint t1 $ TE_Constr [] Bool
     add_constraint t2 t3
-    return t3 
+    return t3
+  type_of_expression (E_Case e1 bs)     = do
+    t1                 <- type_of_expression e1
+    (TE_Arrow t1' t2') <- type_of_function bs
+    add_constraint t1' t1
+    return t2'
   type_of_expression (E_Seq e1 e2)      = do
     t1 <- type_of_expression e1
     t2 <- type_of_expression e2

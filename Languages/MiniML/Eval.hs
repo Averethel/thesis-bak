@@ -158,6 +158,8 @@ module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
     return e2
   eval_step_expr (E_ITE (E_Const C_False) _ e3)         =
     return e3
+  eval_step_expr (E_Case e1 bs)                         =
+    eval_function bs e1
   eval_step_expr (E_Seq e1 e2)
     | not . is_value $ e1                               = do
       e1' <- eval_step_expr e1

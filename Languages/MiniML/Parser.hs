@@ -31,7 +31,8 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
                              "and", "or",
                              "if", "then",
                              "else", "function",
-                             "let", "letrec", "in"],
+                             "let", "letrec",
+                             "case", "of", "in"],
     PTok.reservedOpNames = [ "[]", "()", "!", "&",
                              "-", "==", "+", "/",
                              "*", ":=", "::", "&&",
@@ -132,12 +133,13 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
     bAssgn = const B_Assign <$> reservedOp ":="
 
   preExpression :: Parser Expr
-  preExpression = choice [try $ parens expression, eVal, eConst, eList, eTuple, eITE, eFunction, eLet, eLetRec, try eUprim, eBprim] where
+  preExpression = choice [try $ parens expression, eVal, eConst, eList, eTuple, eITE, eCase, eFunction, eLet, eLetRec, try eUprim, eBprim] where
     eVal       = E_Val <$> identifier
     eConst     = E_Const <$> constant
     eList      = foldr E_Cons (E_Const C_Nil) <$> (brackets . commaSep $ expression)
     eTuple     = E_Tuple <$> (parens . commaSep $ expression)
     eITE       = E_ITE <$> (reserved "if" *> expression) <*> (reserved "then" *> expression) <*> (reserved "else" *> expression)
+    eCase      = E_Case <$> (reserved "case" *> expression) <*> (reserved "of" *> patternMatching "->")
     eFunction  = E_Function <$> (reserved "function" *> patternMatching "->")
     eLet       = E_Let <$> (reserved "let" *> prePatternMatching "=") <*> (reserved "in" *> expression)
     eLetRec    = E_LetRec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)

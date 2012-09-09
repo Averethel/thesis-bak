@@ -54,6 +54,7 @@ module Languages.MiniML.PrettyPrint () where
     show (E_And e1 e2)      = show e1 ++ " && " ++ show e2
     show (E_Or e1 e2)       = show e1 ++ " || " ++ show e2
     show (E_ITE e1 e2 e3)   = "if ( " ++ show e1 ++ " ) then { " ++ show e2 ++ " } else { " ++ show e3 ++ " }"
+    show (E_Case e1 ms)     = "case " ++ show e1 ++ " of " ++ showMatchings ms
     show (E_Seq e1 e2)      = show e1 ++ "; " ++ show e2
     show (E_Function ms)    = "function " ++ showMatchings ms
     show (E_Let (p, e1) e2) = "let \n\t" ++ show p ++ " = " ++ show e1 ++ "\nin " ++ show e2

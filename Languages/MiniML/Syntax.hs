@@ -54,6 +54,7 @@ module Languages.MiniML.Syntax where
     | E_And Expr Expr
     | E_Or Expr Expr
     | E_ITE Expr Expr Expr
+    | E_Case Expr [Binding]
     | E_Seq Expr Expr
     | E_Function [Binding]
     | E_Let Binding Expr

@@ -132,6 +132,10 @@ module Compiler.Translations.MLtoEL.UniqueNamesEnforcer (enforce_unique_names) w
     e2' <- rename_to_unique_expression e2
     e3' <- rename_to_unique_expression e3
     return $ E_ITE e1' e2' e3'
+  rename_to_unique_expression (E_Case e bs) = do
+    e'  <- rename_to_unique_expression e
+    bs' <- rename_to_unique_function bs
+    return $ E_Case e' bs'
   rename_to_unique_expression (E_Seq e1 e2) = do
     e1' <- rename_to_unique_expression e1
     e2' <- rename_to_unique_expression e2
