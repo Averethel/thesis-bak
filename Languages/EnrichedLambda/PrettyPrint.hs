@@ -1,72 +1,151 @@
-module Languages.EnrichedLambda.PrettyPrint () where
+{-# LANGUAGE 
+  FlexibleInstances,
+  TypeSynonymInstances
+  #-}
+
+module Languages.EnrichedLambda.PrettyPrint () where 
+  import Utils.Iseq
   import Languages.EnrichedLambda.Syntax
 
-  showBindings []            = []
-  showBindings ((v, e):bs) = "\n\t" ++ v ++ " = " ++ show e ++ showBindings bs
-  
-  instance Show Constant where
-    show (C_Int n) = show n
-    show C_True    = "True"
-    show C_False   = "False"
-    show C_Nil     = "[]"
-    show C_Unit    = "()"
+  indentation :: Iseq
+  indentation = iStr "  "
+
+  pprUnaryPrim :: UnaryPrim -> Iseq
+  pprUnaryPrim U_Not    = iStr "not"
+  pprUnaryPrim U_Ref    = iStr "!"
+  pprUnaryPrim U_Deref  = iStr "&"
+  pprUnaryPrim U_Head   = iStr "hd"
+  pprUnaryPrim U_Tail   = iStr "tl"
+  pprUnaryPrim U_Fst    = iStr "fst"
+  pprUnaryPrim U_Snd    = iStr "snd"
   
   instance Show UnaryPrim where
-    show U_Not   = "~"
-    show U_Ref   = "!"
-    show U_Deref = "&"
-    show U_Fst   = "π1"
-    show U_Snd   = "π2"
-    show U_Head  = "head"
-    show U_Tail  = "tail"
-    show U_Empty = "empty?"
-  
+    show = show . pprUnaryPrim
+
+  pprBinaryPrim :: BinaryPrim -> Iseq
+  pprBinaryPrim B_Eq      = iStr "=="
+  pprBinaryPrim B_Plus    = iStr "+"
+  pprBinaryPrim B_Minus   = iStr "-"
+  pprBinaryPrim B_Mult    = iStr "*"
+  pprBinaryPrim B_Div     = iStr "/"
+  pprBinaryPrim B_Assign  = iStr ":="
+  pprBinaryPrim B_And     = iStr "&&"
+  pprBinaryPrim B_Or      = iStr "||"
+
   instance Show BinaryPrim where
-    show B_Eq     = "=="
-    show B_Plus   = "+"
-    show B_Minus  = "-"
-    show B_Mult   = "*"
-    show B_Div    = "/"
-    show B_Assign = ":="
+    show = show . pprBinaryPrim
+
+  pprAExpr :: Expr -> Iseq
+  pprAExpr e
+    | isAtomicExpr e = pprExpr e
+    | otherwise      = iStr "(" `iAppend` pprExpr e `iAppend` iStr ")"
+
+  pprLetBindings :: [LetBinding] -> Iseq
+  pprLetBindings defns = iInterleave sep (map pprLetBinding defns) where
+    sep = iConcat [ iStr " and", iNewline ]
   
+  pprLetBinding :: LetBinding -> Iseq
+  pprLetBinding (n, e) = iConcat [ iStr n, iStr " = ", iIndent (pprExpr e) ]
+
+  pprClause :: Clause -> Iseq
+  pprClause (tag, vars, expr) = 
+    iConcat [iStr "<", iStr $ show tag, 
+             iInterleave (iStr " ") $ (iStr ">") : map iStr vars,
+             iStr " -> ", pprExpr expr]
+
+  pprClauses :: [Clause] -> Iseq
+  pprClauses cls = iInterleave iNewline (map pprClause cls)
+
+  pprExpr :: Expr -> Iseq
+  pprExpr (E_UPrim up)                           =
+    pprUnaryPrim up
+  pprExpr (E_BPrim bp)                           =
+    pprBinaryPrim bp
+  pprExpr (E_Val ident)                          =
+    iStr ident
+  pprExpr (E_Num n)                              =
+    iStr $ show n
+  pprExpr (E_Location n)                         =
+    (iStr "Mem@") `iAppend` (iStr $ show n)
+  pprExpr (E_Constr tp t a)                      =
+    iStr "Pack{" `iAppend` 
+    iInterleave (iStr ",") [iStr $ show tp, iStr $ show t, iStr $ show a] `iAppend`
+    iStr "}"
+  pprExpr (E_Seq e1 e2)                          =
+    iConcat [ iNewline, indentation, iIndent $ pprExpr e1, iStr ";", 
+              iNewline, indentation, iIndent $pprExpr e2]
+  pprExpr (E_Apply (E_Apply (E_BPrim bp) e1) e2)
+    | isInfix bp                                 =
+      iConcat [ pprAExpr e1, iStr " ", pprBinaryPrim bp, 
+                iStr " ", pprAExpr e2]
+  pprExpr (E_Apply e1 e2)                        =
+    (pprExpr e1) `iAppend` (iStr " ") `iAppend` (pprAExpr e2)
+  pprExpr (E_Let bs e)                           =
+    iConcat [ iStr "let", iNewline,
+              indentation, iIndent $ pprLetBindings bs,
+              iNewline, iStr "in", iNewline,
+              indentation, iIndent $ pprExpr e ]
+  pprExpr (E_LetRec bs e)                        =
+    iConcat [ iStr "letrec", iNewline,
+              indentation, iIndent $ pprLetBindings bs,
+              iNewline, iStr "in ",
+              pprExpr e ]
+  pprExpr (E_Case e cs)                          =
+    iConcat [ iStr "case ", pprExpr e, iStr " of", iNewline,
+              indentation, iIndent $ pprClauses cs]
+  pprExpr (E_Function var e)                     =
+    iConcat [ iStr "function ", iStr var, 
+              iStr " -> ", pprExpr e]
+  pprExpr Null                                   = 
+    iNil
+
   instance Show Expr where
-    show (E_Val s)          = s
-    show (E_UPrim up)       = show up
-    show (E_BPrim bp)       = show bp
-    show (E_Const c)        = show c
-    show (E_Location n)     = "Mem@" ++ show n
-    show (E_Cons e1 e2)     = show e1 ++ " :: " ++ show e2
-    show (E_ITE e1 e2 e3)   = "if ( " ++ show e1 ++ " ) then { " ++ show e2 ++ " } else { " ++ show e3 ++ " }"
-    show (E_Seq e1 e2)      = show e1 ++ "; " ++ show e2
-    show (E_Pair e1 e2)     = "( " ++ show e1 ++ ", " ++ show e2 ++  " )"
-    show (E_Let v e1 e2)    = "let\n\t" ++ v ++ " = " ++ show e1 ++ "\nin\n\t" ++ show e2
-    show (E_LetRec lrbs e2) = "letrec\n\t" ++ showBindings lrbs ++ "\nin\n\t" ++ show e2
-    show (E_Apply e1 e2)    = 
-      case e1 of 
-        E_BPrim bp -> show e2 ++ " " ++ show bp
-        _          -> show e1 ++ " " ++ show e2
-    show (E_Function s e)   = "λ" ++ s ++ "." ++ show e
-    show E_MatchFailure     = "Match Failure"
-    show Null               = "_"
-  
-  instance Show Type where
-    show (T_Var s)                     = s
-    show T_Int                         = "Int"
-    show T_Bool                        = "Bool"
-    show T_Unit                        = "Unit"
-    show (T_Pair t1 t2)                = "( " ++ show t1 ++ ", " ++ show t2 ++ " )"
-    show (T_List t)                    = show t ++ " List"
-    show (T_Arrow t1@(T_Arrow _ _) t2) = "( " ++ show t1 ++ " ) -> " ++ show t2
-    show (T_Arrow t1 t2)               = show t1 ++ " -> " ++ show t2
-    show (T_Ref t)                     = show t ++ " Ref"
+    show = show . pprExpr
 
-  instance Show Definition where 
-    show (D_Let v e)    = "let " ++ v ++ " = " ++ show e
-    show (D_LetRec lrbs) = "letrec " ++ showBindings lrbs
+  pprBinding :: Binding -> Iseq
+  pprBinding (ident, vars, e) =
+    iConcat [ iStr ident, 
+              iInterleave (iStr " ") $ map iStr vars,
+              iStr " = ", pprExpr e]
 
-  instance Show Instruction where
-    show (IDF df) = show df
-    show (IEX ex) = show ex
+  pprBindings :: Bool -> [Binding] -> Iseq
+  pprBindings recursive bs = iInterleave sep $ map pprBinding bs where
+    sep
+      | not recursive = iNewline `iAppend` iStr "and "
+      | recursive     = iNewline `iAppend` iStr "   and "
 
-    showList []     c = c
-    showList (i:is) c = show i ++ ";;\n" ++ showList is c
+  pprDefinition :: Definition -> Iseq
+  pprDefinition (D_Let bs) = 
+    iConcat [ iStr "let ", pprBindings False bs]
+  pprDefinition (D_LetRec bs) = 
+    iConcat [ iStr "letrec ", pprBindings False bs]
+
+  instance Show Definition where
+    show = show . pprDefinition
+
+  pprProgram :: Program -> Iseq
+  pprProgram (defs, expr) = 
+    iConcat [ iInterleave sep (map pprDefinition defs), sep,
+              pprExpr expr, sep] where
+                sep = iConcat [iStr ";;", iNewline]
+
+  instance Show Program where
+    show = show . pprProgram
+
+  -- Think about how to handle types here
+  --pprAType :: Type -> Iseq
+  --pprType :: Type -> Iseq
+  --pprType (T_Var s)       = 
+  --  iStr s
+  --pprType (T_Arrow t1 t2) = 
+  --  pprType t1 `iAppend` iStr " -> " `iAppend` pprAType t2
+  --pprType (T_Ref t)       =
+  --  iStr "Ref " $
+  ----  | T_Defined Type_Tag [Type]
+  ----  deriving Eq
+
+
+
+
+
+
