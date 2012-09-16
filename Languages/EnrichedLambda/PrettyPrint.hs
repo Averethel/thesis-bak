@@ -7,9 +7,6 @@ module Languages.EnrichedLambda.PrettyPrint () where
   import Utils.Iseq
   import Languages.EnrichedLambda.Syntax
 
-  indentation :: Iseq
-  indentation = iStr "  "
-
   pprUnaryPrim :: UnaryPrim -> Iseq
   pprUnaryPrim U_Not    = iStr "not"
   pprUnaryPrim U_Ref    = iStr "!"
@@ -73,7 +70,7 @@ module Languages.EnrichedLambda.PrettyPrint () where
     iStr "}"
   pprExpr (E_Seq e1 e2)                          =
     iConcat [ iNewline, indentation, iIndent $ pprExpr e1, iStr ";", 
-              iNewline, indentation, iIndent $pprExpr e2]
+              iNewline, indentation, iIndent $ pprExpr e2]
   pprExpr (E_Apply (E_Apply (E_BPrim bp) e1) e2)
     | isInfix bp                                 =
       iConcat [ pprAExpr e1, iStr " ", pprBinaryPrim bp, 
@@ -89,13 +86,15 @@ module Languages.EnrichedLambda.PrettyPrint () where
     iConcat [ iStr "letrec", iNewline,
               indentation, iIndent $ pprLetBindings bs,
               iNewline, iStr "in ",
-              pprExpr e ]
+              indentation, iIndent $ pprExpr e ]
   pprExpr (E_Case e cs)                          =
     iConcat [ iStr "case ", pprExpr e, iStr " of", iNewline,
               indentation, iIndent $ pprClauses cs]
   pprExpr (E_Function var e)                     =
     iConcat [ iStr "function ", iStr var, 
               iStr " -> ", pprExpr e]
+  pprExpr E_MatchFailure                         =
+    iStr "Match_Failure"
   pprExpr Null                                   = 
     iNil
 

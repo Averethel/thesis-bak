@@ -1,12 +1,14 @@
 module Utils.Iseq (
-  Iseq,
+  Iseq(..),
   iNil,
   iStr,
   iAppend,
   iNewline,
   iIndent,
   iConcat,
-  iInterleave ) where
+  iInterleave,
+  indentation ) where
+
   data Iseq = 
       INil
     | INewline
@@ -62,3 +64,6 @@ module Utils.Iseq (
 
   instance Show Iseq where
     show = iDisplay
+
+  indentation :: Iseq
+  indentation = iStr "  "
