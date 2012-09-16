@@ -1,4 +1,5 @@
-module Languages.MiniML.Parser (inputParser, program, expressionParser) where
+--(inputParser, program, expressionParser)
+module Languages.MiniML.Parser  where
   import Languages.MiniML.Syntax
   import Languages.MiniML.PrettyPrint
 
@@ -64,11 +65,21 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
   commaSep :: Parser a -> Parser [a]
   commaSep = PTok.commaSep lang
 
+  commaSep1 :: Parser a -> Parser [a]
+  commaSep1 = PTok.commaSep1 lang
+
   semiSep :: Parser a -> Parser [a]
   semiSep = PTok.semiSep lang
 
   natural :: Parser Integer
   natural = PTok.natural lang
+
+  tuple :: Parser a -> Parser [a]
+  tuple parser = do
+    e <- parser
+    reservedOp ","
+    rest <- commaSep1 parser
+    return $ e:rest
 
   constant :: Parser Constant
   constant = choice [pInt, pFalse, pTrue, pNil, pUnit] where
@@ -79,11 +90,11 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
     pUnit  = const C_Unit <$> reservedOp "()"
 
   prePattern :: Parser Pattern
-  prePattern = choice [pVal, pWild, pConst, pTuple, pList, parens $ pattern] where
+  prePattern = choice $ [pVal, pWild, try pConst, try pTuple, pList, parens $ pattern] where
     pVal   = P_Val <$> identifier
     pWild  = const P_Wildcard <$> char '_'
     pConst = P_Const <$> constant
-    pTuple = P_Tuple <$> (parens . commaSep $ pattern)
+    pTuple = P_Tuple <$> (parens . tuple $ pattern)
     pList  = foldr P_Cons (P_Const C_Nil) <$> (brackets . commaSep $ pattern)
 
   pattern :: Parser Pattern
@@ -139,11 +150,11 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
     bAssgn = const B_Assign <$> reservedOp ":="
 
   preExpression :: Parser Expr
-  preExpression = choice [try $ parens expression, eVal, eConst, eList, eTuple, eITE, eCase, eFunction, eLet, eLetRec, try eUprim, eBprim] where
+  preExpression = choice $ map try [eVal, eConst, eList, eTuple, eITE, eCase, eFunction, eLet, eLetRec, eUprim, eBprim, parens expression] where
     eVal       = E_Val <$> identifier
     eConst     = E_Const <$> constant
     eList      = foldr E_Cons (E_Const C_Nil) <$> (brackets . commaSep $ expression)
-    eTuple     = E_Tuple <$> (parens . commaSep $ expression)
+    eTuple     = E_Tuple <$> (parens $ tuple expression)
     eITE       = E_ITE <$> (reserved "if" *> expression) <*> (reserved "then" *> expression) <*> (reserved "else" *> expression)
     eCase      = E_Case <$> (reserved "case" *> expression) <*> (reserved "of" *> patternMatching "->")
     eFunction  = E_Function <$> (reserved "function" *> patternMatching "->")
