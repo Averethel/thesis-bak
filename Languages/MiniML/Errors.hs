@@ -13,7 +13,9 @@ module Languages.MiniML.Errors
    parse_error_file,
    eval_error,
    eval_error_file,
-   memory_full
+   memory_full,
+   head_of_nil,
+   tail_of_nil
   ) where
   memory_full = "Memory full"
 
@@ -35,6 +37,10 @@ module Languages.MiniML.Errors
   division_by_0 = "Division by 0"
 
   match_failure = "Match failure"
+
+  head_of_nil = "head function called on empty list"
+
+  tail_of_nil = "tail function called on empty list"
 
   typing_error err ex = Languages.MiniML.Errors.error "Typing" err "expression" (show ex)
 

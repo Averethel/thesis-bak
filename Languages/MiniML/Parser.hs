@@ -33,7 +33,9 @@ module Languages.MiniML.Parser  where
                              "if", "then",
                              "else", "function",
                              "let", "letrec",
-                             "case", "of", "in"],
+                             "case", "of", "in",
+                             "fst", "snd", "head",
+                             "tail", "empty?"],
     PTok.reservedOpNames = [ "[]", "()", "!", "&",
                              "-", "==", "+", "/",
                              "*", ":=", "::", "&&",
@@ -134,11 +136,16 @@ module Languages.MiniML.Parser  where
                     return $ d:ds
 
   unaryPrim :: Parser UnaryPrim
-  unaryPrim = choice [uNot, uRef, uDeref, uMinus] where
+  unaryPrim = choice [uNot, uFst, uSnd, uHead, uTail, uEmpty, uRef, uDeref, uMinus] where
     uNot   = const U_Not <$> reserved "not"
     uRef   = const U_Ref <$> (reserved "ref" <|> reservedOp "!")
     uDeref = const U_Deref <$> reservedOp "&"
     uMinus = const U_I_Minus <$> reservedOp "~"
+    uFst   = const U_Fst <$> reserved "fst"
+    uSnd   = const U_Snd <$> reserved "snd"
+    uHead  = const U_Head <$> reserved "head"
+    uTail  = const U_Tail <$> reserved "tail"
+    uEmpty = const U_Empty <$> reserved "empty?"
 
   binaryPrim :: Parser BinaryPrim
   binaryPrim = choice [bEq, bPlus, bMinus, bMult, bDiv, bAssgn] where
@@ -150,7 +157,7 @@ module Languages.MiniML.Parser  where
     bAssgn = const B_Assign <$> reservedOp ":="
 
   preExpression :: Parser Expr
-  preExpression = choice $ map try [eVal, eConst, eList, eTuple, eITE, eCase, eFunction, eLet, eLetRec, eUprim, eBprim, parens expression] where
+  preExpression = choice $ map try [eUprim, eBprim, eVal, eConst, eList, eTuple, eITE, eCase, eFunction, eLet, eLetRec, parens expression] where
     eVal       = E_Val <$> identifier
     eConst     = E_Const <$> constant
     eList      = foldr E_Cons (E_Const C_Nil) <$> (brackets . commaSep $ expression)
@@ -179,6 +186,11 @@ module Languages.MiniML.Parser  where
                 [Prefix ((reserved "ref" <|> reservedOp "!") *> pure (E_Apply (E_UPrim U_Ref)))],
                 [Prefix (reservedOp "&" *> pure (E_Apply (E_UPrim U_Deref)))],
                 [Prefix (reservedOp "-" *> pure (E_Apply (E_UPrim U_I_Minus)))],
+                [Prefix (reserved "fst" *> pure (E_Apply (E_UPrim U_Fst)))],
+                [Prefix (reserved "snd" *> pure (E_Apply (E_UPrim U_Snd)))],
+                [Prefix (reserved "head" *> pure (E_Apply (E_UPrim U_Head)))],
+                [Prefix (reserved "tail" *> pure (E_Apply (E_UPrim U_Tail)))],
+                [Prefix (reserved "empty?" *> pure (E_Apply (E_UPrim U_Empty)))],
                 [Infix (reservedOp "@" *> pure E_Apply) AssocLeft],
                 [Infix (reservedOp "::" *> pure E_Cons) AssocRight],
                 [Infix (reservedOp "&&" *> pure E_And) AssocLeft],

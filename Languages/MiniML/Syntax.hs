@@ -17,6 +17,11 @@ module Languages.MiniML.Syntax where
     | U_Ref
     | U_Deref
     | U_I_Minus
+    | U_Fst
+    | U_Snd
+    | U_Empty
+    | U_Head
+    | U_Tail
     deriving Eq
   
   data BinaryPrim =
@@ -68,6 +73,7 @@ module Languages.MiniML.Syntax where
     | E_Function [Binding]
     | E_Let [Binding] Expr
     | E_LetRec [LetRecBinding] Expr
+    | E_MatchFailure
     | Null -- for memory emptiness
     deriving Eq
 
@@ -75,6 +81,7 @@ module Languages.MiniML.Syntax where
   isAtomicExpr (E_Val _)      = True
   isAtomicExpr (E_Location _) = True
   isAtomicExpr (E_Const _)    = True
+  isAtomicExpr (E_UPrim _)    = True
   isAtomicExpr _              = False
 
   data Definition =

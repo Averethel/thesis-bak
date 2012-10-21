@@ -16,7 +16,12 @@ module Languages.MiniML.PrettyPrint where
   pprUnaryPrim U_Not     = iStr "not"
   pprUnaryPrim U_Ref     = iStr "!"
   pprUnaryPrim U_Deref   = iStr "&"
-  pprUnaryPrim U_I_Minus = iStr "-" 
+  pprUnaryPrim U_I_Minus = iStr "-"
+  pprUnaryPrim U_Fst     = iStr "fst"
+  pprUnaryPrim U_Snd     = iStr "snd"
+  pprUnaryPrim U_Empty   = iStr "empty?"
+  pprUnaryPrim U_Head    = iStr "head"
+  pprUnaryPrim U_Tail    = iStr "tail"
 
   instance Show UnaryPrim where
     show = show . pprUnaryPrim
@@ -140,6 +145,8 @@ module Languages.MiniML.PrettyPrint where
               indentation, iIndent $ pprExpr e ]
   pprExpr Null                                    =
     iNil
+  pprExpr E_MatchFailure                          =
+    iStr "match_failure"
 
   instance Show Expr where
     show = show . pprExpr

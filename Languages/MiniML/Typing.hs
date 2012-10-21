@@ -51,6 +51,23 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
     return $ TE_Arrow (TE_Constr [v] Ref) v
   type_of_unary_primitive U_I_Minus =
     return $ TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)
+  type_of_unary_primitive U_Fst     = do
+    v1 <- fresh_type_var
+    v2 <- fresh_type_var
+    return $ TE_Arrow (TE_Tuple [v1, v2]) v1
+  type_of_unary_primitive U_Snd     = do
+    v1 <- fresh_type_var
+    v2 <- fresh_type_var
+    return $ TE_Arrow (TE_Tuple [v1, v2]) v2
+  type_of_unary_primitive U_Empty   = do
+    v <- fresh_type_var
+    return $ TE_Arrow (TE_Constr [v] List) (TE_Constr [] Bool)
+  type_of_unary_primitive U_Head    = do
+    v <- fresh_type_var
+    return $ TE_Arrow (TE_Constr [v] List) v
+  type_of_unary_primitive U_Tail    = do
+    v <- fresh_type_var
+    return $ TE_Arrow (TE_Constr [v] List) $ TE_Constr [v] List
 
   type_of_binary_primitive :: (MonadState InterpreterState m, MonadError String m) => BinaryPrim -> m TypeExpr
   type_of_binary_primitive B_Eq      = do
@@ -203,6 +220,9 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
     t2 <- type_of_expression e2
     reset_typing_env env
     return t2
+  type_of_expression E_MatchFailure     = do
+    tv <- fresh_type_var
+    return tv
 
   type_of_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
   type_of_definition (D_Let bs)      = type_of_bindings bs
