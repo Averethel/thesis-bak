@@ -8,10 +8,24 @@ Implementing MiniML compiler to ZINC bytecode
 
 Currently working on
 ====================
-* Implementing Graph Code language (see feature/languages/graph-code)
+* Rewriting Enriched Lambda Calculus
 
 Changelog
 =========
+* 21 X 2012
+    * [Languages]
+        * Added head, tail, empty?, fst and snd primitives to MiniML
+    * [Compiler]
+        * Initial version of pattern matching translations
+* 10 IX 2012
+    * [Compiler]
+        * Changed compiler structure
+        * Added folding tuples
+        * Added wildcard pattern removing
+* 9 IX 2012
+    * [Languages]
+        * Deleted Enriched Lambda Calculus With Low Level Types
+        * Rewrote Enriched Lambda Calculus syntax to be similar to Core language described in Implementing Functional Languages: a tutorial
 * 18 VIII 2012
     * [Languages] 
         * MiniML interpreter reimplemented using monads
