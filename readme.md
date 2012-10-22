@@ -12,6 +12,9 @@ Currently working on
 
 Changelog
 =========
+* 22 X 2012
+    * [Compiler]
+        * Removing redundant if stateents introduced by pattern matching simplification
 * 21 X 2012
     * [Languages]
         * Added head, tail, empty?, fst and snd primitives to MiniML
