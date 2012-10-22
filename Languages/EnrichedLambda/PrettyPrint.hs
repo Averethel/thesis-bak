@@ -1,6 +1,7 @@
 {-# LANGUAGE 
   FlexibleInstances,
-  TypeSynonymInstances
+  TypeSynonymInstances,
+  IncoherentInstances
   #-}
 
 module Languages.EnrichedLambda.PrettyPrint () where 
@@ -45,8 +46,8 @@ module Languages.EnrichedLambda.PrettyPrint () where
   pprLetBinding (n, e) = iConcat [ iStr n, iStr " = ", iIndent (pprExpr e) ]
 
   pprClause :: Clause -> Iseq
-  pprClause (tag, vars, expr) = 
-    iConcat [iStr "<", iStr $ show tag, 
+  pprClause (type_tag, constr_tag, vars, expr) = 
+    iConcat [iStr "<", iStr $ show type_tag, iStr ",", iStr $ show constr_tag,
              iInterleave (iStr " ") $ (iStr ">") : map iStr vars,
              iStr " -> ", pprExpr expr]
 
@@ -123,6 +124,8 @@ module Languages.EnrichedLambda.PrettyPrint () where
     show = show . pprDefinition
 
   pprProgram :: Program -> Iseq
+  pprProgram ([],   expr) =
+    iConcat [pprExpr expr, iStr ";;", iNewline]
   pprProgram (defs, expr) = 
     iConcat [ iInterleave sep (map pprDefinition defs), sep,
               pprExpr expr, sep] where
