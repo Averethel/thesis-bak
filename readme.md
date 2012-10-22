@@ -8,7 +8,7 @@ Implementing MiniML compiler to ZINC bytecode
 
 Currently working on
 ====================
-* Implementing Graph Code language (see feature/languages/graph-code)
+* Rewriting Enriched Lambda Calculus (see feature/rewrite-enriched-lambda)
 
 Changelog
 =========
