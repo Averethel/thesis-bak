@@ -13,8 +13,11 @@ Currently working on
 Changelog
 =========
 * 22 X 2012
+    * [Languages]
+        * Removed old Enriched Lambda Calculus Code
     * [Compiler]
         * Removing redundant if stateents introduced by pattern matching simplification
+        * Added translation to Enriched Lambda Calculus
 * 21 X 2012
     * [Languages]
         * Added head, tail, empty?, fst and snd primitives to MiniML
