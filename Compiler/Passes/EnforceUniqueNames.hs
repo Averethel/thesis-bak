@@ -2,7 +2,7 @@
   FlexibleContexts
   #-}
 
-module Compiler.Translations.MLtoEL.UniqueNamesEnforcer (enforce_unique_names) where
+module Compiler.Passes.EnforceUniqueNames (enforce_unique_names) where
   import Languages.MiniML.Syntax
 
   import Control.Monad.State
@@ -88,6 +88,14 @@ module Compiler.Translations.MLtoEL.UniqueNamesEnforcer (enforce_unique_names) w
     bs' <- rename_to_unique_function bs
     return $ (p', e'):bs'
 
+  rename_to_unique_let_bindings :: (MonadState EnforcerState m) => [Binding] -> m [Binding]
+  rename_to_unique_let_bindings []          = return []
+  rename_to_unique_let_bindings ((p, e):bs) = do
+    p'  <- rename_to_unique_pattern p
+    e'  <- rename_to_unique_expression e
+    bs' <- rename_to_unique_let_bindings bs
+    return $ (p', e'):bs'  
+
   rename_to_unique_bindings :: (MonadState EnforcerState m) => [LetRecBinding] -> m [LetRecBinding]
   rename_to_unique_bindings []             = return []
   rename_to_unique_bindings ((v, bs):lrbs) = do
@@ -143,13 +151,12 @@ module Compiler.Translations.MLtoEL.UniqueNamesEnforcer (enforce_unique_names) w
   rename_to_unique_expression (E_Function bs) = do
     bs' <- rename_to_unique_function bs
     return $ E_Function bs'
-  rename_to_unique_expression (E_Let (p, e1) e2) = do
-    e1' <- rename_to_unique_expression e1
+  rename_to_unique_expression (E_Let bs e2) = do
+    bs' <- rename_to_unique_let_bindings bs
     backup
-    p'  <- rename_to_unique_pattern p
     e2' <- rename_to_unique_expression e2
     restore
-    return $ E_Let (p', e1') e2'
+    return $ E_Let bs' e2'
   rename_to_unique_expression (E_LetRec lrbs e) = do
     backup
     lrbs' <- rename_to_unique_bindings lrbs
@@ -159,10 +166,9 @@ module Compiler.Translations.MLtoEL.UniqueNamesEnforcer (enforce_unique_names) w
   rename_to_unique_expression e = return e
 
   rename_to_unique_definition :: (MonadState EnforcerState m) => Definition -> m Definition
-  rename_to_unique_definition (D_Let (p, e))  = do
-    p' <- rename_to_unique_pattern p
-    e' <- rename_to_unique_expression e
-    return $ D_Let (p', e')
+  rename_to_unique_definition (D_Let bs)      = do
+    bs' <- rename_to_unique_let_bindings bs
+    return $ D_Let bs'
   rename_to_unique_definition (D_LetRec lrbs) = do
     lrbs' <- rename_to_unique_bindings lrbs
     return $ D_LetRec lrbs'
@@ -183,4 +189,4 @@ module Compiler.Translations.MLtoEL.UniqueNamesEnforcer (enforce_unique_names) w
     return $ i':is'
 
   enforce_unique_names :: Program -> Program
-  enforce_unique_names prog = fst $ runState (rename_to_unique prog) Compiler.Translations.MLtoEL.UniqueNamesEnforcer.empty_state
+  enforce_unique_names prog = fst $ runState (rename_to_unique prog) Compiler.Passes.EnforceUniqueNames.empty_state

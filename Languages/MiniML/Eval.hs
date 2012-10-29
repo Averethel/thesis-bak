@@ -65,6 +65,22 @@ module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
     load addr
   eval_unary_primitive U_I_Minus (E_Const (C_Int n)) =
     return $ E_Const $ C_Int $ 0 - n
+  eval_unary_primitive U_Fst     (E_Tuple [v1, _])   =
+    return v1
+  eval_unary_primitive U_Snd     (E_Tuple [_,  v2])  =
+    return v2
+  eval_unary_primitive U_Empty   (E_Const C_Nil)     =
+    return $ E_Const C_True
+  eval_unary_primitive U_Empty   (E_Cons _ _)        =
+    return $ E_Const C_False
+  eval_unary_primitive U_Head    (E_Const C_Nil)     =
+    throwError $ head_of_nil
+  eval_unary_primitive U_Head    (E_Cons v1 _)       =
+    return v1
+  eval_unary_primitive U_Tail    (E_Const C_Nil)     =
+    throwError $ tail_of_nil
+  eval_unary_primitive U_Tail    (E_Cons _ v2)       =
+    return v2
 
   eval_binary_primitive :: (MonadError String m, MonadState InterpreterState m) => BinaryPrim -> Expr -> Expr -> m Expr 
   eval_binary_primitive B_Eq      (E_Const c1)        (E_Const c2)
@@ -182,16 +198,20 @@ module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
     eval_function pm e2
   eval_step_expr (E_Tuple es)                           =
     eval_step_tuple es []
-  eval_step_expr (E_Let (p, e1) e2)
+  eval_step_expr (E_Let [] e2)                          =
+    return e2
+  eval_step_expr (E_Let ((p, e1):bs) e2)
     | not . is_value $ e1                               = do
       e1' <- eval_step_expr e1
-      return $ E_Let (p, e1') e2
+      return $ E_Let ((p, e1'):bs) e2
     | is_value e1                                       = do
       matches_of_pattern p e1
-      return e2
+      return $ E_Let bs e2
   eval_step_expr (E_LetRec lrbs e)                      = do
     recfun lrbs
     return e
+  eval_step_expr E_MatchFailure                         =
+    throwError match_failure
 
   eval_expr :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Expr
   eval_expr e
@@ -201,10 +221,13 @@ module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
       eval_expr e'
 
   eval_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
-  eval_definition (D_Let (p, e))    = do
+  eval_definition (D_Let [])          =
+    return ()
+  eval_definition (D_Let ((p, e):bs)) = do
     e' <- eval_expr e
     matches_of_pattern p e'
-  eval_definition (D_LetRec lrbs)   = 
+    eval_definition $ D_Let bs
+  eval_definition (D_LetRec lrbs)     = 
     recfun lrbs
 
   eval_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()

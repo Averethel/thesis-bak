@@ -13,7 +13,9 @@ module Utils.Errors
    parse_error_file,
    eval_error,
    eval_error_file,
-   memory_full
+   memory_full,
+   head_of_nil,
+   tail_of_nil
   ) where
   memory_full = "Memory full"
 

@@ -17,6 +17,11 @@ module Languages.MiniML.Syntax where
     | U_Ref
     | U_Deref
     | U_I_Minus
+    | U_Fst
+    | U_Snd
+    | U_Empty
+    | U_Head
+    | U_Tail
     deriving Eq
   
   data BinaryPrim =
@@ -28,6 +33,9 @@ module Languages.MiniML.Syntax where
     | B_Assign
     deriving Eq
 
+  isInfix :: BinaryPrim -> Bool
+  isInfix _ = True
+
   data Pattern =
       P_Val ValueName
     | P_Wildcard
@@ -36,6 +44,12 @@ module Languages.MiniML.Syntax where
     | P_Cons Pattern Pattern
     -- P_List [Pattern] - syntactic sugar for foldr P_Cons (P_Const C_Nil)
     deriving Eq
+
+  isAtomicPattern :: Pattern -> Bool
+  isAtomicPattern P_Wildcard     = True
+  isAtomicPattern (P_Val _)      = True
+  isAtomicPattern (P_Const _)    = True
+  isAtomicPattern _              = False
 
   type Binding = (Pattern, Expr)
 
@@ -57,19 +71,28 @@ module Languages.MiniML.Syntax where
     | E_Case Expr [Binding]
     | E_Seq Expr Expr
     | E_Function [Binding]
-    | E_Let Binding Expr
+    | E_Let [Binding] Expr
     | E_LetRec [LetRecBinding] Expr
+    | E_MatchFailure
     | Null -- for memory emptiness
     deriving Eq
 
+  isAtomicExpr :: Expr -> Bool
+  isAtomicExpr (E_Val _)      = True
+  isAtomicExpr (E_Location _) = True
+  isAtomicExpr (E_Const _)    = True
+  isAtomicExpr (E_UPrim _)    = True
+  isAtomicExpr _              = False
+
   data Definition =
-      D_Let (Pattern, Expr)
+      D_Let [Binding]
     | D_LetRec [LetRecBinding]
     deriving Eq
 
   data Instruction =
       IDF Definition
     | IEX Expr
+    deriving Eq
 
   type Program = [Instruction]
 
@@ -78,13 +101,17 @@ module Languages.MiniML.Syntax where
     | K_Arrow Kind Kind
     deriving Eq
 
+  isAtomicKind :: Kind -> Bool
+  isAtomicKind K_Type = True
+  isAtomicKind _      = False
+
   data TypeConstr =
       Int
     | Bool
     | Unit
     | List
     | Ref
-    deriving (Show, Eq)
+    deriving Eq
 
   type TypeVar = String
 
@@ -94,3 +121,8 @@ module Languages.MiniML.Syntax where
     | TE_Tuple    [TypeExpr]
     | TE_Constr   [TypeExpr] TypeConstr
     deriving Eq
+
+  isAtomicTypeExpr :: TypeExpr -> Bool
+  isAtomicTypeExpr (TE_Arrow  _     _) = False
+  isAtomicTypeExpr (TE_Constr (_:_) _) = False
+  isAtomicTypeExpr _                   = True

@@ -1,22 +1,49 @@
-module Languages.EnrichedLambda.Syntax where
+ module Languages.EnrichedLambda.Syntax where
   
-  data Constant =
-      C_Int Integer
-    | C_True
-    | C_False
-    | C_Nil
-    | C_Unit
-    deriving Eq
-  
+  type Name       = String
+  type ConstrTag  = Int
+  type TypeTag    = Int
+  type Arity      = Int
+
+  bool_tag :: TypeTag
+  bool_tag = 0
+
+  false_tag :: ConstrTag
+  false_tag = 0
+
+  true_tag :: ConstrTag
+  true_tag = 1
+
+  unit_tag :: TypeTag
+  unit_tag = 1
+
+  unit_tag_c :: ConstrTag
+  unit_tag_c = 0
+
+  list_tag :: TypeTag
+  list_tag = 2
+
+  nil_tag :: ConstrTag
+  nil_tag = 0
+
+  cons_tag :: ConstrTag
+  cons_tag = 1
+
+  pair_tag :: TypeTag
+  pair_tag = 3
+
+  pair_tag_c :: ConstrTag
+  pair_tag_c = 0
+
   data UnaryPrim =
       U_Not
     | U_Ref
     | U_Deref
-    | U_Fst
-    | U_Snd
     | U_Head
     | U_Tail
     | U_Empty
+    | U_Fst
+    | U_Snd
     deriving Eq
   
   data BinaryPrim =
@@ -26,43 +53,51 @@ module Languages.EnrichedLambda.Syntax where
     | B_Mult
     | B_Div
     | B_Assign
+    | B_And
+    | B_Or
     deriving Eq
-  
-  data Expr =
-      E_Val String
-    | E_UPrim UnaryPrim
+
+  type Clause = (TypeTag, ConstrTag, [Name], Expr)
+  type LetBinding = (Name, Expr)
+
+  data Expr = 
+      E_UPrim UnaryPrim
     | E_BPrim BinaryPrim
-    | E_Const Constant
+    | E_Val Name
+    | E_Num Integer
     | E_Location Integer
-    | E_Cons Expr Expr
-    | E_ITE Expr Expr Expr
+    | E_Constr TypeTag ConstrTag Arity
     | E_Seq Expr Expr
-    | E_Pair Expr Expr
-    | E_Let String Expr Expr
-    | E_LetRec [(String, Expr)] Expr
     | E_Apply Expr Expr
-    | E_Function String Expr
+    | E_Let [LetBinding] Expr
+    | E_LetRec [LetBinding] Expr
+    | E_Case Expr [Clause]
+    | E_Function Name Expr
     | E_MatchFailure
-    | Null -- for memory emptiness
+    | Null
     deriving Eq
 
-  data Definition =
-      D_Let String Expr
-    | D_LetRec [(String, Expr)]
+  isInfix :: BinaryPrim -> Bool
+  isInfix _ = True
 
-  data Instruction =
-      IDF Definition
-    | IEX Expr
+  isAtomicExpr :: Expr -> Bool
+  isAtomicExpr (E_Val _)      = True
+  isAtomicExpr (E_Num _)      = True
+  isAtomicExpr (E_Location _) = True
+  isAtomicExpr _              = False
 
-  type Program = [Instruction]
-  
+  type Binding = (Name, [Name], Expr)
+
+  data Definition = 
+      D_Let [Binding]
+    | D_LetRec [Binding]
+    deriving Eq
+
+  type Program = ([Definition], Expr)
+
   data Type =
       T_Var String
-    | T_Int
-    | T_Bool
-    | T_Unit
-    | T_Pair Type Type
-    | T_List Type
     | T_Arrow Type Type
     | T_Ref Type
+    | T_Defined TypeTag [Type]
     deriving Eq
