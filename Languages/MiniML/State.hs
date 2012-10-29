@@ -5,7 +5,8 @@
   #-}
 
 module Languages.MiniML.State where
-  import Languages.MiniML.Errors
+  import Utils.Errors
+
   import Languages.MiniML.Syntax
   
   import Control.Monad.Error

@@ -1,4 +1,4 @@
-module Languages.MiniML.Errors
+module Utils.Errors
   (too_many_arguments,
    invalid,
    unbound_variable,
@@ -36,16 +36,20 @@ module Languages.MiniML.Errors
 
   match_failure = "Match failure"
 
-  typing_error err ex = Languages.MiniML.Errors.error "Typing" err "expression" (show ex)
+  head_of_nil = "head function called on empty list"
 
-  typing_error_file err file = Languages.MiniML.Errors.error "Typing" err "file" file
+  tail_of_nil = "tail function called on empty list"
 
-  parse_error err ex = Languages.MiniML.Errors.error "Parse" (show err) "expression" (show ex)
+  typing_error err ex = Utils.Errors.error "Typing" err "expression" (show ex)
 
-  parse_error_file err file = Languages.MiniML.Errors.error "Parse" (show err) "file" file
+  typing_error_file err file = Utils.Errors.error "Typing" err "file" file
 
-  eval_error err ex = Languages.MiniML.Errors.error "Evaluation" err "expression" (show ex)
+  parse_error err ex = Utils.Errors.error "Parse" (show err) "expression" (show ex)
 
-  eval_error_file err file = Languages.MiniML.Errors.error "Evaluation" err "file" file
+  parse_error_file err file = Utils.Errors.error "Parse" (show err) "file" file
+
+  eval_error err ex = Utils.Errors.error "Evaluation" err "expression" (show ex)
+
+  eval_error_file err file = Utils.Errors.error "Evaluation" err "file" file
 
   error tp err wh w = tp ++ " error:\n" ++ err ++ "\nin " ++ wh ++ "\n\t" ++ w

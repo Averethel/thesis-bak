@@ -3,7 +3,8 @@
   #-}
 
 module Languages.MiniML.Kinding (kind_of_type_expr) where
-  import Languages.MiniML.Errors
+  import Utils.Errors
+
   import Languages.MiniML.State
   import Languages.MiniML.Syntax
   import Languages.MiniML.PrettyPrint

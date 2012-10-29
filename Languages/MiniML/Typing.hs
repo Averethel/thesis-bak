@@ -3,7 +3,8 @@
   #-}
 
 module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_program) where
-  import Languages.MiniML.Errors
+  import Utils.Errors
+
   import Languages.MiniML.Kinding
   import Languages.MiniML.State
   import Languages.MiniML.Syntax

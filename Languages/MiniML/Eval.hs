@@ -3,7 +3,8 @@
   #-}
 
 module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
-  import Languages.MiniML.Errors
+  import Utils.Errors
+
   import Languages.MiniML.State
   import Languages.MiniML.Syntax
 

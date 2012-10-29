@@ -3,7 +3,8 @@
   #-}
 
 module Languages.MiniML.Unification (unify, check_compare) where
-  import Languages.MiniML.Errors
+  import Utils.Errors
+  
   import Languages.MiniML.State
   import Languages.MiniML.Syntax
   import Languages.MiniML.PrettyPrint

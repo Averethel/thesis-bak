@@ -3,7 +3,8 @@
   #-}
 
 module Languages.MiniML.Interpreter where
-  import Languages.MiniML.Errors
+  import Utils.Errors
+
   import Languages.MiniML.Eval
   import Languages.MiniML.Parser
   import Languages.MiniML.Syntax
