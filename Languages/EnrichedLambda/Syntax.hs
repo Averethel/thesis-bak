@@ -77,15 +77,6 @@
     | Null
     deriving Eq
 
-  isInfix :: BinaryPrim -> Bool
-  isInfix _ = True
-
-  isAtomicExpr :: Expr -> Bool
-  isAtomicExpr (E_Val _)      = True
-  isAtomicExpr (E_Num _)      = True
-  isAtomicExpr (E_Location _) = True
-  isAtomicExpr _              = False
-
   type Binding = (Name, [Name], Expr)
 
   data Definition = 

@@ -33,23 +33,13 @@ module Languages.MiniML.Syntax where
     | B_Assign
     deriving Eq
 
-  isInfix :: BinaryPrim -> Bool
-  isInfix _ = True
-
   data Pattern =
       P_Val ValueName
     | P_Wildcard
     | P_Const Constant
     | P_Tuple [Pattern]
     | P_Cons Pattern Pattern
-    -- P_List [Pattern] - syntactic sugar for foldr P_Cons (P_Const C_Nil)
     deriving Eq
-
-  isAtomicPattern :: Pattern -> Bool
-  isAtomicPattern P_Wildcard     = True
-  isAtomicPattern (P_Val _)      = True
-  isAtomicPattern (P_Const _)    = True
-  isAtomicPattern _              = False
 
   type Binding = (Pattern, Expr)
 
@@ -59,11 +49,10 @@ module Languages.MiniML.Syntax where
       E_UPrim UnaryPrim
     | E_BPrim BinaryPrim
     | E_Val ValueName
-    | E_Location Integer -- for internal representation of references
+    | E_Location Integer
     | E_Const Constant
     | E_Apply Expr Expr
     | E_Cons Expr Expr
-    -- E_List [Expr] - syntactic sugar for foldr E_Cons (E_Const C_Nil)
     | E_Tuple [Expr]
     | E_And Expr Expr
     | E_Or Expr Expr
@@ -74,15 +63,8 @@ module Languages.MiniML.Syntax where
     | E_Let [Binding] Expr
     | E_LetRec [LetRecBinding] Expr
     | E_MatchFailure
-    | Null -- for memory emptiness
+    | Null
     deriving Eq
-
-  isAtomicExpr :: Expr -> Bool
-  isAtomicExpr (E_Val _)      = True
-  isAtomicExpr (E_Location _) = True
-  isAtomicExpr (E_Const _)    = True
-  isAtomicExpr (E_UPrim _)    = True
-  isAtomicExpr _              = False
 
   data Definition =
       D_Let [Binding]
@@ -101,10 +83,6 @@ module Languages.MiniML.Syntax where
     | K_Arrow Kind Kind
     deriving Eq
 
-  isAtomicKind :: Kind -> Bool
-  isAtomicKind K_Type = True
-  isAtomicKind _      = False
-
   data TypeConstr =
       Int
     | Bool
@@ -121,8 +99,3 @@ module Languages.MiniML.Syntax where
     | TE_Tuple    [TypeExpr]
     | TE_Constr   [TypeExpr] TypeConstr
     deriving Eq
-
-  isAtomicTypeExpr :: TypeExpr -> Bool
-  isAtomicTypeExpr (TE_Arrow  _     _) = False
-  isAtomicTypeExpr (TE_Constr (_:_) _) = False
-  isAtomicTypeExpr _                   = True

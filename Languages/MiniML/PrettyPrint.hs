@@ -1,6 +1,32 @@
 module Languages.MiniML.PrettyPrint where
   import Utils.Iseq
+
   import Languages.MiniML.Syntax
+
+  isInfix :: BinaryPrim -> Bool
+  isInfix _ = True
+
+  isAtomicPattern :: Pattern -> Bool
+  isAtomicPattern P_Wildcard     = True
+  isAtomicPattern (P_Val _)      = True
+  isAtomicPattern (P_Const _)    = True
+  isAtomicPattern _              = False
+
+  isAtomicExpr :: Expr -> Bool
+  isAtomicExpr (E_Val _)      = True
+  isAtomicExpr (E_Location _) = True
+  isAtomicExpr (E_Const _)    = True
+  isAtomicExpr (E_UPrim _)    = True
+  isAtomicExpr _              = False
+
+  isAtomicKind :: Kind -> Bool
+  isAtomicKind K_Type = True
+  isAtomicKind _      = False
+
+  isAtomicTypeExpr :: TypeExpr -> Bool
+  isAtomicTypeExpr (TE_Arrow  _     _) = False
+  isAtomicTypeExpr (TE_Constr (_:_) _) = False
+  isAtomicTypeExpr _                   = True
 
   pprConstant :: Constant -> Iseq
   pprConstant (C_Int n) = iStr . show $ n

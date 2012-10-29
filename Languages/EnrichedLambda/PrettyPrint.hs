@@ -6,7 +6,17 @@
 
 module Languages.EnrichedLambda.PrettyPrint () where 
   import Utils.Iseq
+
   import Languages.EnrichedLambda.Syntax
+
+  isInfix :: BinaryPrim -> Bool
+  isInfix _ = True
+
+  isAtomicExpr :: Expr -> Bool
+  isAtomicExpr (E_Val _)      = True
+  isAtomicExpr (E_Num _)      = True
+  isAtomicExpr (E_Location _) = True
+  isAtomicExpr _              = False
 
   pprUnaryPrim :: UnaryPrim -> Iseq
   pprUnaryPrim U_Not    = iStr "not"
