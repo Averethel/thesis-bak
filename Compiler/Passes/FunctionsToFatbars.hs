@@ -1,6 +1,7 @@
 {-# LANGUAGE
   FlexibleContexts
   #-}
+
 module Compiler.Passes.FunctionsToFatbars (functions_to_fatbars) where 
   import Languages.MiniML.Syntax
 
