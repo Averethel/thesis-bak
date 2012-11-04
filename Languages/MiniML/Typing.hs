@@ -114,8 +114,8 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
   recfun lrbs = recfun' (map fst lrbs) lrbs [] [] where
     recfun' :: (MonadError String m, MonadState InterpreterState m) => [ValueName] -> [LetRecBinding] -> [TypeExpr] -> [TypeExpr] -> m ()
     recfun' []     []             ts1 ts2 = add_bindings_constraints $ zip ts1 ts2
-    recfun' []     ((n, bs):lrbs) ts1 ts2 = do
-      tp <- type_of_function bs
+    recfun' []     ((n, e):lrbs) ts1 ts2 = do
+      tp <- type_of_expression e
       recfun' [] lrbs ts1 (tp:ts2)
     recfun' (n:ns) lrbs           ts1 ts2 = do
       t <- fresh_type_var

@@ -24,8 +24,8 @@ module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
 
   recfun :: (MonadState InterpreterState m) => [LetRecBinding] -> m ()
   recfun []          = return ()
-  recfun ((v, b):bs) = do
-    extend_eval_env v $ E_Function b
+  recfun ((v, e):bs) = do
+    extend_eval_env v e
     recfun bs
 
   matches :: Expr -> Pattern -> Bool

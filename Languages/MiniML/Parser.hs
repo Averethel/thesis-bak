@@ -108,32 +108,31 @@ module Languages.MiniML.Parser  where
                           e <- expression
                           return (p, e)
 
-  patternMatching :: String -> Parser [(Pattern, Expr)]
+  patternMatching :: String -> Parser [Binding]
   patternMatching s = do
                       first <- prePatternMatching s
                       rest  <- many (reservedOp "|" *> prePatternMatching s)
                       return $ first:rest
 
-  patternMatchingWithGuard :: String -> Parser [(Pattern, Expr, Expr)]
+  patternMatchingWithGuard :: String -> Parser [FunBinding]
   patternMatchingWithGuard s = do
     pss <- patternMatching s
     return $ map (\(p, e) -> (p, e, E_Const C_True)) pss
 
-  letBindings :: Parser [(Pattern, Expr)]
+  letBindings :: Parser [Binding]
   letBindings = do
                   first <- prePatternMatching "="
                   rest  <- many (reserved "and" *> prePatternMatching "=")
                   return $ first:rest
 
-  preLetRec :: Parser (ValueName, [(Pattern, Expr, Expr)])
+  preLetRec :: Parser LetRecBinding
   preLetRec = do
                 i <- identifier
                 reservedOp "="
-                reserved "function"
-                pm <- patternMatchingWithGuard "->"
-                return (i, pm)
+                e <- expression
+                return (i, e)
   
-  letrecBindings :: Parser [(ValueName, [(Pattern, Expr, Expr)])]
+  letrecBindings :: Parser [LetRecBinding]
   letrecBindings = do 
                     d <- preLetRec
                     ds <- many (reserved "and" *> preLetRec)

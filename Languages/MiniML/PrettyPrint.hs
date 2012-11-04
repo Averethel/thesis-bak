@@ -129,10 +129,10 @@ module Languages.MiniML.PrettyPrint where
       sep = iConcat [ iStr " |", iNewline ]
 
   pprLetRecBinding :: LetRecBinding -> Iseq
-  pprLetRecBinding (vn, bs) =
+  pprLetRecBinding (vn, e) =
     iConcat [ iStr vn, iStr " ", 
               iIndent $ iConcat [ 
-              iStr "= ", pprFunBindings bs ]]
+              iStr "= ", pprExpr e ]]
 
   pprLetRecBindings :: [LetRecBinding] -> Iseq
   pprLetRecBindings bs = 

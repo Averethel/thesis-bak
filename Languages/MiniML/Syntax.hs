@@ -45,7 +45,7 @@ module Languages.MiniML.Syntax where
 
   type FunBinding = (Pattern, Expr, Expr)
 
-  type LetRecBinding = (ValueName, [FunBinding])
+  type LetRecBinding = (ValueName, Expr)
 
   data Expr =
       E_UPrim UnaryPrim
