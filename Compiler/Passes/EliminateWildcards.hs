@@ -48,9 +48,9 @@ module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
     })
 
   eliminate_wildcards_letrec_bindings :: MonadState NamerState m => [LetRecBinding] -> m [LetRecBinding]
-  eliminate_wildcards_letrec_bindings = mapM (\(n, bs) -> do{
-    bs' <- eliminate_wildcards_bindings bs;
-    return (n, bs')
+  eliminate_wildcards_letrec_bindings = mapM (\(n, e) -> do{
+    e' <- eliminate_wildcards_expr e;
+    return (n, e')
     })
 
   eliminate_wildcards_expr :: MonadState NamerState m => Expr -> m Expr

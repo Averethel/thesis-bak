@@ -33,7 +33,7 @@ module Compiler.Passes.FoldTuples (fold_tuples) where
                                              fold_tuples_expression g))
 
   fold_tuples_letrec_bindings :: [LetRecBinding] -> [LetRecBinding]
-  fold_tuples_letrec_bindings = map (\(n, bs) -> (n, fold_tuples_bindings bs))
+  fold_tuples_letrec_bindings = map (\(n, e) -> (n, fold_tuples_expression e))
 
   fold_tuples_expression :: Expr -> Expr
   fold_tuples_expression (E_Tuple ps) =

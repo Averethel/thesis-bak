@@ -98,11 +98,11 @@ module Compiler.Passes.EnforceUniqueNames (enforce_unique_names) where
     return $ (p', e'):bs'  
 
   rename_to_unique_bindings :: (MonadState EnforcerState m) => [LetRecBinding] -> m [LetRecBinding]
-  rename_to_unique_bindings []             = return []
-  rename_to_unique_bindings ((v, bs):lrbs) = do
+  rename_to_unique_bindings []            = return []
+  rename_to_unique_bindings ((v, e):lrbs) = do
     increment v
     v'    <- value v
-    bs'   <- rename_to_unique_function bs
+    bs'   <- rename_to_unique_expression e
     lrbs' <- rename_to_unique_bindings lrbs
     return $ (v',bs'):lrbs'
 

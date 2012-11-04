@@ -55,9 +55,9 @@ module Compiler.Passes.SimplifyLetBindings (let_bindings_to_declarations) where
     return (p, e', g')
 
   let_bindings_to_declarations_letrec_binding :: MonadState NamerState m => LetRecBinding -> m LetRecBinding
-  let_bindings_to_declarations_letrec_binding (v, fbs) = do
-    fbs' <- mapM let_bindings_to_declarations_fun_binding fbs
-    return (v, fbs')
+  let_bindings_to_declarations_letrec_binding (v, e) = do
+    e' <- let_bindings_to_declarations_expr e
+    return (v, e')
 
   let_bindings_to_declarations_expr :: MonadState NamerState m => Expr -> m Expr
   let_bindings_to_declarations_expr (E_Apply e1 e2)   = do

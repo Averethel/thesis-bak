@@ -58,9 +58,9 @@ module Compiler.Passes.ConstantMatchingsToGuards (program_to_guarded_patterns) w
       (_,              _)              -> (p', e, E_And g g')
 
   letrec_binding_to_guarded_patterns :: MonadState NamerState m => LetRecBinding -> m LetRecBinding
-  letrec_binding_to_guarded_patterns (v, fbs) = do
-    fbs' <- mapM fun_binding_to_guarded_patterns fbs
-    return (v, fbs')
+  letrec_binding_to_guarded_patterns (v, e) = do
+    e' <- expression_to_guarded_patterns e
+    return (v, e')
 
   binding_to_guarded_patterns :: MonadState NamerState m => Binding -> m Binding
   binding_to_guarded_patterns (p, e) = do
