@@ -7,19 +7,16 @@ module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
 
   import Control.Monad.State
 
-  data NamerState = 
-    S {
-        pat_var :: Integer
-      }
+  type NamerState = Integer
 
   empty_state :: NamerState
-  empty_state = S { pat_var = 0 }
+  empty_state = 0
 
   new_pat_var :: MonadState NamerState m => m String
   new_pat_var = do
     s <- get
-    put $ s { pat_var = pat_var s + 1 }
-    return $ "__wild" ++ (show $ pat_var s)
+    put $ s + 1
+    return $ "_wild_" ++ show s
 
   eliminate_wildcards_pattern :: MonadState NamerState m => Pattern -> m Pattern
   eliminate_wildcards_pattern P_Wildcard     = do
