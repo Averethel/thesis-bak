@@ -43,7 +43,9 @@ module Languages.MiniML.Syntax where
 
   type Binding = (Pattern, Expr)
 
-  type LetRecBinding = (ValueName, [Binding])
+  type FunBinding = (Pattern, Expr, Expr)
+
+  type LetRecBinding = (ValueName, Expr)
 
   data Expr =
       E_UPrim UnaryPrim
@@ -59,12 +61,23 @@ module Languages.MiniML.Syntax where
     | E_ITE Expr Expr Expr
     | E_Case Expr [Binding]
     | E_Seq Expr Expr
-    | E_Function [Binding]
+    | E_Function [FunBinding]
     | E_Let [Binding] Expr
     | E_LetRec [LetRecBinding] Expr
     | E_MatchFailure
+    | E_FatBar Expr Expr
     | Null
     deriving Eq
+
+  data Value =
+      V_UPrim UnaryPrim
+    | V_BPrim BinaryPrim
+    | V_Unit
+    | V_Int Integer
+    | V_Bool Bool
+    | V_List [Value]
+    | V_Tuple [Value]
+    | V_Fun (Value -> Value)
 
   data Definition =
       D_Let [Binding]

@@ -7,19 +7,16 @@ module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
 
   import Control.Monad.State
 
-  data NamerState = 
-    S {
-        pat_var :: Integer
-      }
+  type NamerState = Integer
 
   empty_state :: NamerState
-  empty_state = S { pat_var = 0 }
+  empty_state = 0
 
   new_pat_var :: MonadState NamerState m => m String
   new_pat_var = do
     s <- get
-    put $ s { pat_var = pat_var s + 1 }
-    return $ "__wild" ++ (show $ pat_var s)
+    put $ s + 1
+    return $ "_wild_" ++ show s
 
   eliminate_wildcards_pattern :: MonadState NamerState m => Pattern -> m Pattern
   eliminate_wildcards_pattern P_Wildcard     = do
@@ -35,17 +32,25 @@ module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
   eliminate_wildcards_pattern p              =
     return p
 
-  eliminate_wildcards_bindings :: MonadState NamerState m => [Binding] -> m [Binding]
-  eliminate_wildcards_bindings = mapM (\(p, e) -> do {
+  eliminate_wildcards_let_bindings :: MonadState NamerState m => [Binding] -> m [Binding]
+  eliminate_wildcards_let_bindings = mapM (\(p, e) -> do {
     p' <- eliminate_wildcards_pattern p;
     e' <- eliminate_wildcards_expr e;
     return (p', e')
     })
 
+  eliminate_wildcards_bindings :: MonadState NamerState m => [FunBinding] -> m [FunBinding]
+  eliminate_wildcards_bindings = mapM (\(p, e, g) -> do {
+    p' <- eliminate_wildcards_pattern p;
+    e' <- eliminate_wildcards_expr e;
+    g' <- eliminate_wildcards_expr g;
+    return (p', e', g')
+    })
+
   eliminate_wildcards_letrec_bindings :: MonadState NamerState m => [LetRecBinding] -> m [LetRecBinding]
-  eliminate_wildcards_letrec_bindings = mapM (\(n, bs) -> do{
-    bs' <- eliminate_wildcards_bindings bs;
-    return (n, bs')
+  eliminate_wildcards_letrec_bindings = mapM (\(n, e) -> do{
+    e' <- eliminate_wildcards_expr e;
+    return (n, e')
     })
 
   eliminate_wildcards_expr :: MonadState NamerState m => Expr -> m Expr
@@ -73,10 +78,6 @@ module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
     e2' <- eliminate_wildcards_expr e2
     e3' <- eliminate_wildcards_expr e3
     return $ E_ITE e1' e2' e3'
-  eliminate_wildcards_expr (E_Case e1 bs)     = do
-    e1' <- eliminate_wildcards_expr e1
-    bs' <- eliminate_wildcards_bindings bs
-    return $ E_Case e1' bs'
   eliminate_wildcards_expr (E_Seq e1 e2)      = do
     e1' <- eliminate_wildcards_expr e1
     e2' <- eliminate_wildcards_expr e2
@@ -85,7 +86,7 @@ module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
     bs' <- eliminate_wildcards_bindings bs
     return $ E_Function bs'
   eliminate_wildcards_expr (E_Let bs e1)      = do
-    bs' <- eliminate_wildcards_bindings bs
+    bs' <- eliminate_wildcards_let_bindings bs
     e1' <- eliminate_wildcards_expr e1
     return $ E_Let bs' e1'
   eliminate_wildcards_expr (E_LetRec lrbs e1) = do
@@ -97,7 +98,7 @@ module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
 
   eliminate_wildcards_definition :: MonadState NamerState m => Definition -> m Definition
   eliminate_wildcards_definition (D_Let bs)    = do
-    bs' <- eliminate_wildcards_bindings bs
+    bs' <- eliminate_wildcards_let_bindings bs
     return $ D_Let bs'
   eliminate_wildcards_definition (D_LetRec bs) = do
     bs' <- eliminate_wildcards_letrec_bindings bs

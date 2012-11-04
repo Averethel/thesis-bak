@@ -69,6 +69,7 @@
     | E_Constr TypeTag ConstrTag Arity
     | E_Seq Expr Expr
     | E_Apply Expr Expr
+    | E_Rescue Expr Expr
     | E_Let [LetBinding] Expr
     | E_LetRec [LetBinding] Expr
     | E_Case Expr [Clause]

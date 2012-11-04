@@ -19,6 +19,17 @@ module Languages.MiniML.PrettyPrint where
   isAtomicExpr (E_UPrim _)    = True
   isAtomicExpr _              = False
 
+  isAtomicValue :: Value -> Bool
+  isAtomicValue (V_UPrim _)    = True
+  isAtomicValue (V_BPrim _)    = True
+  isAtomicValue V_Unit         = True
+  isAtomicValue (V_Int _)      = True
+  isAtomicValue (V_Bool _)     = True
+  isAtomicValue (V_List [])    = True
+  isAtomicValue (V_List (_:_)) = False
+  isAtomicValue (V_Tuple _)    = True
+  isAtomicValue (V_Fun _)      = True
+
   isAtomicKind :: Kind -> Bool
   isAtomicKind K_Type = True
   isAtomicKind _      = False
@@ -100,12 +111,28 @@ module Languages.MiniML.PrettyPrint where
     iInterleave sep $ map (pprBinding "=") bs where
       sep = iConcat [ iStr " and", iNewline ]
 
+  pprFunBinding :: FunBinding -> Iseq
+  pprFunBinding (p, e, E_Const C_True) = 
+    iConcat [ pprPattern p,
+              iStr " -> ",
+              pprExpr e ]
+  pprFunBinding (p, e, g) = 
+    iConcat [ pprPattern p,
+              iStr " {",
+              pprExpr g,
+              iStr "} -> ",
+              pprExpr e ]
+
+  pprFunBindings :: [FunBinding] -> Iseq
+  pprFunBindings bs = 
+    iInterleave sep $ map pprFunBinding bs where
+      sep = iConcat [ iStr " |", iNewline ]
 
   pprLetRecBinding :: LetRecBinding -> Iseq
-  pprLetRecBinding (vn, bs) =
+  pprLetRecBinding (vn, e) =
     iConcat [ iStr vn, iStr " ", 
               iIndent $ iConcat [ 
-              iStr "= ", pprBindings bs ]]
+              iStr "= ", pprExpr e ]]
 
   pprLetRecBindings :: [LetRecBinding] -> Iseq
   pprLetRecBindings bs = 
@@ -138,7 +165,7 @@ module Languages.MiniML.PrettyPrint where
     pprAExpr e1 `iAppend` iStr " :: " `iAppend` pprAExpr e2
   pprExpr (E_Tuple es)                            =
     iConcat [ iStr "(",  iInterleave (iStr ", ") $ 
-              map pprAExpr es, iStr ")" ]
+              map pprExpr es, iStr ")" ]
   pprExpr (E_And e1 e2)                           =
     iConcat [ pprAExpr e1, iStr " && ",
               pprAExpr e2 ]
@@ -158,7 +185,8 @@ module Languages.MiniML.PrettyPrint where
               iNewline, indentation, iIndent $ pprExpr e2]
   pprExpr (E_Function bs)                         =
     iConcat [ iStr "functio", iIndent $
-              iConcat [ iStr "n ", pprBindings bs]]
+              iConcat [ iStr "n ", iNewline,
+                        pprFunBindings bs]]
   pprExpr (E_Let bs e)                            =
     iConcat [ iStr "let", iNewline,
               indentation, iIndent $ pprLetBindings bs,
@@ -173,9 +201,39 @@ module Languages.MiniML.PrettyPrint where
     iNil
   pprExpr E_MatchFailure                          =
     iStr "match_failure"
+  pprExpr (E_FatBar e1 e2)                        =
+    iConcat [ pprAExpr e1, iStr "⌷", pprAExpr e2]
 
   instance Show Expr where
     show = show . pprExpr
+
+  pprAValue :: Value -> Iseq
+  pprAValue v
+    | isAtomicValue v = pprValue v
+    | otherwise       = iStr "(" `iAppend` pprValue v `iAppend` iStr ")"
+
+  pprValue :: Value -> Iseq
+  pprValue (V_UPrim up)     = iConcat [ iStr "<", 
+                                        pprUnaryPrim up,
+                                        iStr ">" ]
+  pprValue (V_BPrim bp)     = iConcat [ iStr "<",
+                                        pprBinaryPrim bp,
+                                        iStr ">" ]
+  pprValue V_Unit           = iStr . show $ ()
+  pprValue (V_Int n)        = iStr . show $ n
+  pprValue (V_Bool b)       = iStr . show $ b
+  pprValue (V_List [])      = iStr "[]"
+  pprValue (V_List (v:vs))  = pprAValue v `iAppend` 
+                              iStr "::" `iAppend`
+                              (pprAValue $ V_List vs)
+  pprValue (V_Tuple vs)     = iConcat [ iStr "(",  
+                                        iInterleave (iStr ", ") $ 
+                                        map pprValue vs, 
+                                        iStr ")" ]
+  pprValue (V_Fun _)        = iStr "Function."
+
+  instance Show Value where
+    show = show . pprValue
 
   pprDefinition :: Definition -> Iseq
   pprDefinition (D_Let bs)      =

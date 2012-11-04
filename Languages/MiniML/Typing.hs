@@ -114,8 +114,8 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
   recfun lrbs = recfun' (map fst lrbs) lrbs [] [] where
     recfun' :: (MonadError String m, MonadState InterpreterState m) => [ValueName] -> [LetRecBinding] -> [TypeExpr] -> [TypeExpr] -> m ()
     recfun' []     []             ts1 ts2 = add_bindings_constraints $ zip ts1 ts2
-    recfun' []     ((n, bs):lrbs) ts1 ts2 = do
-      tp <- type_of_function bs
+    recfun' []     ((n, e):lrbs) ts1 ts2 = do
+      tp <- type_of_expression e
       recfun' [] lrbs ts1 (tp:ts2)
     recfun' (n:ns) lrbs           ts1 ts2 = do
       t <- fresh_type_var
@@ -127,14 +127,16 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
       add_constraint t1 t2
       add_bindings_constraints ts
 
-  type_of_function :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> m TypeExpr
+  type_of_function :: (MonadError String m, MonadState InterpreterState m) => [FunBinding] -> m TypeExpr
   type_of_function bs = type_of_function' bs [] where
-    type_of_function' :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> [TypeExpr] -> m TypeExpr
+    type_of_function' :: (MonadError String m, MonadState InterpreterState m) => [FunBinding] -> [TypeExpr] -> m TypeExpr
     type_of_function' []          acc = add_function_constraints acc
-    type_of_function' ((p, e):es) acc = do
+    type_of_function' ((p, e, g):es) acc = do
       env <- get_typing_env
       t1  <- type_and_bindings_of_pattern p
       t2  <- type_of_expression e
+      tg  <- type_of_expression g
+      add_constraint tg (TE_Constr [] Bool)
       reset_typing_env env
       type_of_function' es ((TE_Arrow t1 t2):acc)
     add_function_constraints :: (MonadError String m, MonadState InterpreterState m) => [TypeExpr] -> m TypeExpr
@@ -142,6 +144,23 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
     add_function_constraints (t1:t2:ts) = do 
       add_constraint t1 t2
       add_function_constraints (t2:ts)
+
+  type_of_case :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> m TypeExpr
+  type_of_case bs = type_of_case' bs [] where
+    type_of_case' :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> [TypeExpr] -> m TypeExpr
+    type_of_case' []          acc = add_case_constraints acc
+    type_of_case' ((p, e):es) acc = do
+      env <- get_typing_env
+      t1  <- type_and_bindings_of_pattern p
+      t2  <- type_of_expression e
+      reset_typing_env env
+      type_of_case' es ((TE_Arrow t1 t2):acc)
+    add_case_constraints :: (MonadError String m, MonadState InterpreterState m) => [TypeExpr] -> m TypeExpr
+    add_case_constraints [t]        = return t
+    add_case_constraints (t1:t2:ts) = do 
+      add_constraint t1 t2
+      add_case_constraints (t2:ts)
+
 
   type_of_bindings :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> m ()
   type_of_bindings []          =
@@ -199,7 +218,7 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
     return t3
   type_of_expression (E_Case e1 bs)     = do
     t1                 <- type_of_expression e1
-    (TE_Arrow t1' t2') <- type_of_function bs
+    (TE_Arrow t1' t2') <- type_of_case bs
     add_constraint t1' t1
     return t2'
   type_of_expression (E_Seq e1 e2)      = do
@@ -224,6 +243,11 @@ module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_
   type_of_expression E_MatchFailure     = do
     tv <- fresh_type_var
     return tv
+  type_of_expression (E_FatBar e1 e2)   = do
+    t1 <- type_of_expression e1
+    t2 <- type_of_expression e2
+    add_constraint t1 t2
+    return t1
 
   type_of_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
   type_of_definition (D_Let bs)      = type_of_bindings bs
