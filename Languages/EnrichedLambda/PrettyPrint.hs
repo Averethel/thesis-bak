@@ -88,6 +88,11 @@ module Languages.EnrichedLambda.PrettyPrint () where
                 iStr " ", pprAExpr e2]
   pprExpr (E_Apply e1 e2)                        =
     (pprExpr e1) `iAppend` (iStr " ") `iAppend` (pprAExpr e2)
+  pprExpr (E_Rescue e1 e2)                       =
+    iConcat [ iStr "try", iNewline,
+              indentation, iIndent $ pprExpr e1, iNewline,
+              iStr "rescue", iNewline,
+              indentation, iIndent $ pprExpr e2 ]
   pprExpr (E_Let bs e)                           =
     iConcat [ iStr "let", iNewline,
               indentation, iIndent $ pprLetBindings bs,
