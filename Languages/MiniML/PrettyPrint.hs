@@ -112,6 +112,10 @@ module Languages.MiniML.PrettyPrint where
       sep = iConcat [ iStr " and", iNewline ]
 
   pprFunBinding :: FunBinding -> Iseq
+  pprFunBinding (p, e, E_Const C_True) = 
+    iConcat [ pprPattern p,
+              iStr " -> ",
+              pprExpr e ]
   pprFunBinding (p, e, g) = 
     iConcat [ pprPattern p,
               iStr " {",
