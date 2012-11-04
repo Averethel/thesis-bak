@@ -35,11 +35,19 @@ module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
   eliminate_wildcards_pattern p              =
     return p
 
-  eliminate_wildcards_bindings :: MonadState NamerState m => [Binding] -> m [Binding]
-  eliminate_wildcards_bindings = mapM (\(p, e) -> do {
+  eliminate_wildcards_let_bindings :: MonadState NamerState m => [Binding] -> m [Binding]
+  eliminate_wildcards_let_bindings = mapM (\(p, e) -> do {
     p' <- eliminate_wildcards_pattern p;
     e' <- eliminate_wildcards_expr e;
     return (p', e')
+    })
+
+  eliminate_wildcards_bindings :: MonadState NamerState m => [FunBinding] -> m [FunBinding]
+  eliminate_wildcards_bindings = mapM (\(p, e, g) -> do {
+    p' <- eliminate_wildcards_pattern p;
+    e' <- eliminate_wildcards_expr e;
+    g' <- eliminate_wildcards_expr g;
+    return (p', e', g')
     })
 
   eliminate_wildcards_letrec_bindings :: MonadState NamerState m => [LetRecBinding] -> m [LetRecBinding]
@@ -73,10 +81,6 @@ module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
     e2' <- eliminate_wildcards_expr e2
     e3' <- eliminate_wildcards_expr e3
     return $ E_ITE e1' e2' e3'
-  eliminate_wildcards_expr (E_Case e1 bs)     = do
-    e1' <- eliminate_wildcards_expr e1
-    bs' <- eliminate_wildcards_bindings bs
-    return $ E_Case e1' bs'
   eliminate_wildcards_expr (E_Seq e1 e2)      = do
     e1' <- eliminate_wildcards_expr e1
     e2' <- eliminate_wildcards_expr e2
@@ -85,7 +89,7 @@ module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
     bs' <- eliminate_wildcards_bindings bs
     return $ E_Function bs'
   eliminate_wildcards_expr (E_Let bs e1)      = do
-    bs' <- eliminate_wildcards_bindings bs
+    bs' <- eliminate_wildcards_let_bindings bs
     e1' <- eliminate_wildcards_expr e1
     return $ E_Let bs' e1'
   eliminate_wildcards_expr (E_LetRec lrbs e1) = do
@@ -97,7 +101,7 @@ module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
 
   eliminate_wildcards_definition :: MonadState NamerState m => Definition -> m Definition
   eliminate_wildcards_definition (D_Let bs)    = do
-    bs' <- eliminate_wildcards_bindings bs
+    bs' <- eliminate_wildcards_let_bindings bs
     return $ D_Let bs'
   eliminate_wildcards_definition (D_LetRec bs) = do
     bs' <- eliminate_wildcards_letrec_bindings bs

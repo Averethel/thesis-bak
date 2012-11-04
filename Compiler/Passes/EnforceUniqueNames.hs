@@ -78,15 +78,16 @@ module Compiler.Passes.EnforceUniqueNames (enforce_unique_names) where
     return $ P_Cons p1' p2'
   rename_to_unique_pattern p = return p
 
-  rename_to_unique_function :: (MonadState EnforcerState m) => [Binding] -> m [Binding]
+  rename_to_unique_function :: (MonadState EnforcerState m) => [FunBinding] -> m [FunBinding]
   rename_to_unique_function []          = return []
-  rename_to_unique_function ((p, e):bs) = do
+  rename_to_unique_function ((p, e, g):bs) = do
     backup
     p'  <- rename_to_unique_pattern p
     e'  <- rename_to_unique_expression e
+    g'  <- rename_to_unique_expression g
     restore
     bs' <- rename_to_unique_function bs
-    return $ (p', e'):bs'
+    return $ (p', e', g'):bs'
 
   rename_to_unique_let_bindings :: (MonadState EnforcerState m) => [Binding] -> m [Binding]
   rename_to_unique_let_bindings []          = return []
@@ -140,10 +141,6 @@ module Compiler.Passes.EnforceUniqueNames (enforce_unique_names) where
     e2' <- rename_to_unique_expression e2
     e3' <- rename_to_unique_expression e3
     return $ E_ITE e1' e2' e3'
-  rename_to_unique_expression (E_Case e bs) = do
-    e'  <- rename_to_unique_expression e
-    bs' <- rename_to_unique_function bs
-    return $ E_Case e' bs'
   rename_to_unique_expression (E_Seq e1 e2) = do
     e1' <- rename_to_unique_expression e1
     e2' <- rename_to_unique_expression e2

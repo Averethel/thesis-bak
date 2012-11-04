@@ -118,15 +118,28 @@ module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
     store_at addr e
     return $ E_Const C_Unit
 
-  eval_function :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> Expr -> m Expr
+  eval_function :: (MonadError String m, MonadState InterpreterState m) => [FunBinding] -> Expr -> m Expr
   eval_function []           _  =
     throwError match_failure
-  eval_function ((p, e2):bs) e1
+  eval_function ((p, e2, g):bs) e1
+    | e1 `matches` p            = do
+      matches_of_pattern p e1
+      eg <- eval_expr g
+      case g of
+        E_Const C_True  -> return e2
+        E_Const C_False -> eval_function bs e1
+    | otherwise                 =
+      eval_function bs e1
+
+  eval_case :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> Expr -> m Expr
+  eval_case []           _  =
+    throwError match_failure
+  eval_case ((p, e2):bs) e1
     | e1 `matches` p            = do
       matches_of_pattern p e1
       return e2
     | otherwise                 =
-      eval_function bs e1
+      eval_case bs e1
 
   eval_step_tuple :: (MonadError String m, MonadState InterpreterState m) => [Expr] -> [Expr] -> m Expr
   eval_step_tuple []     acc = 
@@ -176,7 +189,7 @@ module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
   eval_step_expr (E_ITE (E_Const C_False) _ e3)         =
     return e3
   eval_step_expr (E_Case e1 bs)                         =
-    eval_function bs e1
+    eval_case bs e1
   eval_step_expr (E_Seq e1 e2)
     | not . is_value $ e1                               = do
       e1' <- eval_step_expr e1
@@ -212,6 +225,14 @@ module Languages.MiniML.Eval (eval_program, eval_expr, eval_definition) where
     return e
   eval_step_expr E_MatchFailure                         =
     throwError match_failure
+  eval_step_expr (E_FatBar E_MatchFailure e2)           = do
+    return e2
+  eval_step_expr (E_FatBar e1 e2)
+    | not . is_value $ e1                               = do
+      e1' <- eval_step_expr e1
+      return (E_FatBar e1' e2)
+    | is_value e1                                       = do
+      return e1
 
   eval_expr :: (MonadError String m, MonadState InterpreterState m) => Expr -> m Expr
   eval_expr e

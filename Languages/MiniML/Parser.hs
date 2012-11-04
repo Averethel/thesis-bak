@@ -32,8 +32,7 @@ module Languages.MiniML.Parser  where
                              "and", "or",
                              "if", "then",
                              "else", "function",
-                             "let", "letrec",
-                             "case", "of", "in",
+                             "let", "letrec", "in",
                              "fst", "snd", "head",
                              "tail", "empty?"],
     PTok.reservedOpNames = [ "[]", "()", "!", "&",
@@ -115,21 +114,26 @@ module Languages.MiniML.Parser  where
                       rest  <- many (reservedOp "|" *> prePatternMatching s)
                       return $ first:rest
 
+  patternMatchingWithGuard :: String -> Parser [(Pattern, Expr, Expr)]
+  patternMatchingWithGuard s = do
+    pss <- patternMatching s
+    return $ map (\(p, e) -> (p, e, E_Const C_True)) pss
+
   letBindings :: Parser [(Pattern, Expr)]
   letBindings = do
                   first <- prePatternMatching "="
                   rest  <- many (reserved "and" *> prePatternMatching "=")
                   return $ first:rest
 
-  preLetRec :: Parser (ValueName, [(Pattern, Expr)])
+  preLetRec :: Parser (ValueName, [(Pattern, Expr, Expr)])
   preLetRec = do
                 i <- identifier
                 reservedOp "="
                 reserved "function"
-                pm <- patternMatching "->"
+                pm <- patternMatchingWithGuard "->"
                 return (i, pm)
   
-  letrecBindings :: Parser [(ValueName, [(Pattern, Expr)])]
+  letrecBindings :: Parser [(ValueName, [(Pattern, Expr, Expr)])]
   letrecBindings = do 
                     d <- preLetRec
                     ds <- many (reserved "and" *> preLetRec)
@@ -157,14 +161,13 @@ module Languages.MiniML.Parser  where
     bAssgn = const B_Assign <$> reservedOp ":="
 
   preExpression :: Parser Expr
-  preExpression = choice $ map try [eUprim, eBprim, eVal, eConst, eList, eTuple, eITE, eCase, eFunction, eLet, eLetRec, parens expression] where
+  preExpression = choice $ map try [eUprim, eBprim, eVal, eConst, eList, eTuple, eITE, eFunction, eLet, eLetRec, parens expression] where
     eVal       = E_Val <$> identifier
     eConst     = E_Const <$> constant
     eList      = foldr E_Cons (E_Const C_Nil) <$> (brackets . commaSep $ expression)
     eTuple     = E_Tuple <$> (parens $ tuple expression)
     eITE       = E_ITE <$> (reserved "if" *> expression) <*> (reserved "then" *> expression) <*> (reserved "else" *> expression)
-    eCase      = E_Case <$> (reserved "case" *> expression) <*> (reserved "of" *> patternMatching "->")
-    eFunction  = E_Function <$> (reserved "function" *> patternMatching "->")
+    eFunction  = E_Function <$> (reserved "function" *> patternMatchingWithGuard "->")
     eLet       = E_Let <$> (reserved "let" *> letBindings) <*> (reserved "in" *> expression)
     eLetRec    = E_LetRec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)
     eUprim     = E_UPrim <$> (angles $ unaryPrim)
