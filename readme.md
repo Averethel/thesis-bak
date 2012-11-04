@@ -8,12 +8,28 @@ Implementing MiniML compiler to ZINC bytecode
 
 Currently working on
 ====================
-* Fixing pattern matching translation (feature/pattern-matching-fix)
 * Interpreter for enriched lambda calculus (feature/enriched-lambda-interpreter)
 * Defunctionalization of MiniML interpreter & ectracting common interface parts to a module (feature/miniml-interpreter-refactor) 
 
 Changelog
 =========
+* 4 XI 2012
+    * [Languages]
+        * Added (internal) guards on patterns in MiniML
+        * Made case statements internal in MiniML
+        * LetRec in MiniML are now less restrictive and are allowing expressions on right hand side (previously only functions were allowed)
+        * Added rescue expression to EnrichedLambda
+          (it behaves like FatBar in MiniML)
+    * [Compiler]
+        * Translating patterns with constants to guarded patterns
+        * Transforming let and letrec definitions to declarations
+          (with only variable patterns allowed)
+        * Pattern Matchings translated to FatBars and PatternMatching labdas according to [PJ87]
+        * Compilation of pattern matching finished
+        * Translation to enriched lambda calculus finished
+* 29 X 2012
+    * [Languages]
+        * Moved prety printing utility functions to PrettyPrint modules from Syntax
 * 22 X 2012
     * [Languages]
         * Removed old Enriched Lambda Calculus Code
