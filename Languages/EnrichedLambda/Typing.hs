@@ -24,7 +24,7 @@ module Languages.EnrichedLambda.Typing where
   listType t = T_Defined 2 [t]
 
   pairType :: Type -> Type -> Type
-  pairType a b = T_Defined 2 [a, b]
+  pairType a b = T_Defined 3 [a, b]
 
   tagToType :: MonadState (InterpreterState Type) m => TypeTag -> m Type
   tagToType n
