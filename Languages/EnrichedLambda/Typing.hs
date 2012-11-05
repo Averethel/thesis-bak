@@ -7,7 +7,9 @@ module Languages.EnrichedLambda.Typing where
   import Languages.EnrichedLambda.Syntax
 
   import Utils.Env
+  import qualified Utils.LanguageClass as LC
   import Utils.State
+  import Utils.Unification
 
   import Control.Monad.Error
   import Control.Monad.State
@@ -221,7 +223,10 @@ module Languages.EnrichedLambda.Typing where
   typeOfDefinition env (D_LetRec bs) = recursiveExtend env $ map bindingToLetBinding bs
 
   typeOfProgram :: (MonadState (InterpreterState Type) m, MonadError String m) => Env Type -> Program -> m Type
-  typeOfProgram env ([], e)     = typeOfExpression env e
+  typeOfProgram env ([], e)     = do
+    t <- typeOfExpression env e
+    s <- unify
+    return $ t `LC.applySubst` s
   typeOfProgram env ((d:ds), e) = do
     env' <- typeOfDefinition env d
     typeOfProgram env' (ds, e)
