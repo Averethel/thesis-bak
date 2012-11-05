@@ -29,6 +29,12 @@ module Languages.EnrichedLambda.PrettyPrint () where
   isAtomicValue (V_Pair _ _)   = True
   isAtomicValue (V_Fun _)      = True
 
+  isAtomicType :: Type -> Bool
+  isAtomicType (T_Arrow _ _)        = False
+  isAtomicType (T_Defined 2 [_])    = False
+  isAtomicType (T_Ref _)            = False
+  isAtomicType _                    = True
+
   pprUnaryPrim :: UnaryPrim -> Iseq
   pprUnaryPrim U_Not    = iStr "not"
   pprUnaryPrim U_Ref    = iStr "!"
@@ -187,20 +193,29 @@ module Languages.EnrichedLambda.PrettyPrint () where
   instance Show Program where
     show = show . pprProgram
 
-  -- Think about how to handle types here
-  --pprAType :: Type -> Iseq
-  --pprType :: Type -> Iseq
-  --pprType (T_Var s)       = 
-  --  iStr s
-  --pprType (T_Arrow t1 t2) = 
-  --  pprType t1 `iAppend` iStr " -> " `iAppend` pprAType t2
-  --pprType (T_Ref t)       =
-  --  iStr "Ref " $
-  ----  | T_Defined Type_Tag [Type]
-  ----  deriving Eq
+  pprAType :: Type -> Iseq
+  pprAType te
+    | isAtomicType te = pprType te
+    | otherwise       = iStr "(" `iAppend` pprType te `iAppend` iStr ")"
+
+  pprType :: Type -> Iseq
+  pprType (T_Var v)              =
+    iStr v
+  pprType (T_Arrow tp1 tp2)      =
+    pprAType tp1 `iAppend` iStr " -> " `iAppend` pprType tp2
+  pprType (T_Ref tp)             =
+    pprAType tp `iAppend` iStr " ref"
+  pprType (T_Defined 0 [])       =
+    iStr "Bool"
+  pprType (T_Defined 1 [])       =
+    iStr "Unit"
+  pprType (T_Defined 2 [t])      =
+    pprAType t `iAppend` iStr " list"
+  pprType (T_Defined 3 [t1, t2]) =
+    iConcat [ iStr "(", pprType t1,
+              iStr ", ", pprType t2,
+              iStr ")" ]
 
 
-
-
-
-
+  instance Show Type where
+    show = show . pprType
