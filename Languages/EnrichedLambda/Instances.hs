@@ -46,6 +46,7 @@ module Languages.EnrichedLambda.Instances where
       applySingleSubst (T_Defined n ts) s      = T_Defined n $ map 
                                                   (flip applySingleSubst s)
                                                   ts
+      applySingleSubst T_Int            _      = T_Int
 
 
   instance LC.Value Value
