@@ -21,6 +21,6 @@ module Utils.LanguageClass where
     applySubst     :: tp -> Subst tp -> tp
 
   class (Program p, Type tp, Value v) => Language p tp v where
-    typeOf :: MonadError String m => Env tp -> p -> m tp
-    eval    :: MonadError String m => Env v  -> p -> m v
+    typeOf  :: Env tp -> p -> Either String tp
+    eval    :: Env v  -> p -> Either String  v
     parser  :: String -> Either ParseError p
