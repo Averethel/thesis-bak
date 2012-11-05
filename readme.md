@@ -16,6 +16,7 @@ Changelog
 * 5 XI 2012
     * [Languages]
         * Added Value type to Enriched Lambdda Calculus
+        * Typing of enriched Enriched Lambdda Calculus
 * 4 XI 2012
     * [Languages]
         * Added (internal) guards on patterns in MiniML
