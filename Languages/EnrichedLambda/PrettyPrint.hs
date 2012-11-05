@@ -18,6 +18,17 @@ module Languages.EnrichedLambda.PrettyPrint () where
   isAtomicExpr (E_Location _) = True
   isAtomicExpr _              = False
 
+  isAtomicValue :: Value -> Bool
+  isAtomicValue (V_UPrim _)    = True
+  isAtomicValue (V_BPrim _)    = True
+  isAtomicValue V_Unit         = True
+  isAtomicValue (V_Int _)      = True
+  isAtomicValue (V_Bool _)     = True
+  isAtomicValue (V_List [])    = True
+  isAtomicValue (V_List (_:_)) = False
+  isAtomicValue (V_Pair _ _)   = True
+  isAtomicValue (V_Fun _)      = True
+
   pprUnaryPrim :: UnaryPrim -> Iseq
   pprUnaryPrim U_Not    = iStr "not"
   pprUnaryPrim U_Ref    = iStr "!"
@@ -111,11 +122,38 @@ module Languages.EnrichedLambda.PrettyPrint () where
               iStr " -> ", pprExpr e]
   pprExpr E_MatchFailure                         =
     iStr "Match_Failure"
-  pprExpr Null                                   = 
-    iNil
 
   instance Show Expr where
     show = show . pprExpr
+
+  pprAValue :: Value -> Iseq
+  pprAValue v
+    | isAtomicValue v = pprValue v
+    | otherwise       = iStr "(" `iAppend` pprValue v `iAppend` iStr ")"
+
+  pprValue :: Value -> Iseq
+  pprValue (V_UPrim up)     = iConcat [ iStr "<", 
+                                        pprUnaryPrim up,
+                                        iStr ">" ]
+  pprValue (V_BPrim bp)     = iConcat [ iStr "<",
+                                        pprBinaryPrim bp,
+                                        iStr ">" ]
+  pprValue V_Unit           = iStr . show $ ()
+  pprValue (V_Int n)        = iStr . show $ n
+  pprValue (V_Bool b)       = iStr . show $ b
+  pprValue (V_List [])      = iStr "[]"
+  pprValue (V_List (v:vs))  = pprAValue v `iAppend` 
+                              iStr "::" `iAppend`
+                              (pprAValue $ V_List vs)
+  pprValue (V_Pair a b)     = iConcat [ iStr "(",  
+                                        pprAValue a,
+                                        iStr ", ",
+                                        pprAValue b,
+                                        iStr ")" ]
+  pprValue (V_Fun _)        = iStr "Function."
+
+  instance Show Value where
+    show = show . pprValue
 
   pprBinding :: Binding -> Iseq
   pprBinding (ident, vars, e) =
