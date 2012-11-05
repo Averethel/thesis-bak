@@ -40,14 +40,14 @@ module Languages.EnrichedLambda.Typing where
 
   constrTagToVars :: MonadState (InterpreterState Type) m => TypeTag -> ConstrTag -> m [Type]
   constrTagToVars n c
-    | n == boolTag                  = return []
-    | n == unitTag                  = return []
+    | n == boolTag                 = return []
+    | n == unitTag                 = return []
     | n == listTag && c == nilTag  = return []
     | n == listTag && c == consTag = do
       a <- newVar
       b <- newVar
       return [T_Var a, T_Var b]
-    | n == pairTag                  = do
+    | n == pairTag                 = do
       a <- newVar
       b <- newVar
       return [T_Var a, T_Var b]
