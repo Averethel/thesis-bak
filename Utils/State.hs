@@ -26,6 +26,13 @@ module Utils.State where
                     simpleConstraints = []
                   }
 
+  newVar :: (Type t, MonadState (InterpreterState t) m) => m String
+  newVar = do
+    s <- get
+    let n = variableCounter s
+    put $ s { variableCounter = n + 1 }
+    return $ "a_" ++ show n
+
   addConstraint :: (Type t, MonadState (InterpreterState t) m) => t -> t -> m ()
   addConstraint t1 t2 = do
     s <- get
