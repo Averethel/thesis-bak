@@ -75,8 +75,17 @@
     | E_Case Expr [Clause]
     | E_Function Name Expr
     | E_MatchFailure
-    | Null
     deriving Eq
+
+  data Value = 
+      V_UPrim UnaryPrim
+    | V_BPrim BinaryPrim
+    | V_Unit
+    | V_Int Integer
+    | V_Bool Bool
+    | V_List [Value]
+    | V_Pair Value Value
+    | V_Fun (Value -> Value)
 
   type Binding = (Name, [Name], Expr)
 
