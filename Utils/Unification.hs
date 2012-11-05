@@ -20,7 +20,7 @@ module Utils.Unification where
           let t' = t `applySubst` subst
           case canCompare t' of
             True  -> checkCompare subst
-            False -> throwError $ cannot_compare t'
+            False -> throwError $ cannotCompare t'
 
   unify :: (Type t, MonadError String m, MonadState (InterpreterState t) m) => m (Subst t)
   unify = unify' emptySubst where
@@ -42,4 +42,4 @@ module Utils.Unification where
                 True  -> do
                   addConstraints $ newConstraints a' b'
                   unify' s
-                False -> throwError $ cannot_unify (a, b)
+                False -> throwError $ cannotUnify (a, b)

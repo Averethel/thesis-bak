@@ -28,26 +28,26 @@ module Languages.EnrichedLambda.Typing where
 
   tagToType :: MonadState (InterpreterState Type) m => TypeTag -> m Type
   tagToType n
-    | n == bool_tag = return boolType
-    | n == unit_tag = return unitType
-    | n == list_tag = do
+    | n == boolTag = return boolType
+    | n == unitTag = return unitType
+    | n == listTag = do
       a <- newVar
       return $ listType $ T_Var a
-    | n == pair_tag = do
+    | n == pairTag = do
       a <- newVar
       b <- newVar
       return $ pairType (T_Var a) $ T_Var b
 
   constrTagToVars :: MonadState (InterpreterState Type) m => TypeTag -> ConstrTag -> m [Type]
   constrTagToVars n c
-    | n == bool_tag                  = return []
-    | n == unit_tag                  = return []
-    | n == list_tag && c == nil_tag  = return []
-    | n == list_tag && c == cons_tag = do
+    | n == boolTag                  = return []
+    | n == unitTag                  = return []
+    | n == listTag && c == nilTag  = return []
+    | n == listTag && c == consTag = do
       a <- newVar
       b <- newVar
       return [T_Var a, T_Var b]
-    | n == pair_tag                  = do
+    | n == pairTag                  = do
       a <- newVar
       b <- newVar
       return [T_Var a, T_Var b]
