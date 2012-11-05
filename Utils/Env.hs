@@ -9,8 +9,8 @@ module Utils.Env where
 
   type Env a = [(String, a)]
 
-  empty_env :: Env a
-  empty_env = []
+  emptyEnv :: Env a
+  emptyEnv = []
 
   lookup' :: MonadError String m => String -> Env a -> m a
   lookup' val env =
