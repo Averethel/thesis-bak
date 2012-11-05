@@ -205,6 +205,8 @@ module Languages.EnrichedLambda.PrettyPrint () where
     pprAType tp1 `iAppend` iStr " -> " `iAppend` pprType tp2
   pprType (T_Ref tp)             =
     pprAType tp `iAppend` iStr " ref"
+  pprType T_Int                  =
+    iStr "int"
   pprType (T_Defined 0 [])       =
     iStr "Bool"
   pprType (T_Defined 1 [])       =
