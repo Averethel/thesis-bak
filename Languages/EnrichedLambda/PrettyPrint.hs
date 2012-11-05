@@ -208,9 +208,9 @@ module Languages.EnrichedLambda.PrettyPrint () where
   pprType T_Int                  =
     iStr "int"
   pprType (T_Defined 0 [])       =
-    iStr "Bool"
+    iStr "bool"
   pprType (T_Defined 1 [])       =
-    iStr "Unit"
+    iStr "unit"
   pprType (T_Defined 2 [t])      =
     pprAType t `iAppend` iStr " list"
   pprType (T_Defined 3 [t1, t2]) =
