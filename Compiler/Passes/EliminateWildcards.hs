@@ -2,118 +2,118 @@
   FlexibleContexts
   #-}
 
-module Compiler.Passes.EliminateWildcards (eliminate_wildcards) where
+module Compiler.Passes.EliminateWildcards (eliminateWildcards) where
   import Languages.MiniML.Syntax
 
   import Control.Monad.State
 
   type NamerState = Integer
 
-  empty_state :: NamerState
-  empty_state = 0
+  emptyState :: NamerState
+  emptyState = 0
 
-  new_pat_var :: MonadState NamerState m => m String
-  new_pat_var = do
+  newPatVar :: MonadState NamerState m => m String
+  newPatVar = do
     s <- get
     put $ s + 1
-    return $ "_wild_" ++ show s
+    return $ "Wild_" ++ show s
 
-  eliminate_wildcards_pattern :: MonadState NamerState m => Pattern -> m Pattern
-  eliminate_wildcards_pattern P_Wildcard     = do
-    v <- new_pat_var
+  eliminateWildcardsPattern :: MonadState NamerState m => Pattern -> m Pattern
+  eliminateWildcardsPattern P_Wildcard     = do
+    v <- newPatVar
     return $ P_Val v
-  eliminate_wildcards_pattern (P_Cons p1 p2) = do
-    p1' <- eliminate_wildcards_pattern p1
-    p2' <- eliminate_wildcards_pattern p2
+  eliminateWildcardsPattern (P_Cons p1 p2) = do
+    p1' <- eliminateWildcardsPattern p1
+    p2' <- eliminateWildcardsPattern p2
     return $ P_Cons p1' p2'
-  eliminate_wildcards_pattern (P_Tuple ps)   = do
-    ps' <- mapM eliminate_wildcards_pattern ps
+  eliminateWildcardsPattern (P_Tuple ps)   = do
+    ps' <- mapM eliminateWildcardsPattern ps
     return $ P_Tuple ps'
-  eliminate_wildcards_pattern p              =
+  eliminateWildcardsPattern p              =
     return p
 
-  eliminate_wildcards_let_bindings :: MonadState NamerState m => [Binding] -> m [Binding]
-  eliminate_wildcards_let_bindings = mapM (\(p, e) -> do {
-    p' <- eliminate_wildcards_pattern p;
-    e' <- eliminate_wildcards_expr e;
+  eliminateWildcardsLetBindings :: MonadState NamerState m => [Binding] -> m [Binding]
+  eliminateWildcardsLetBindings = mapM (\(p, e) -> do {
+    p' <- eliminateWildcardsPattern p;
+    e' <- eliminateWildcardsExpr e;
     return (p', e')
     })
 
-  eliminate_wildcards_bindings :: MonadState NamerState m => [FunBinding] -> m [FunBinding]
-  eliminate_wildcards_bindings = mapM (\(p, e, g) -> do {
-    p' <- eliminate_wildcards_pattern p;
-    e' <- eliminate_wildcards_expr e;
-    g' <- eliminate_wildcards_expr g;
+  eliminateWildcardsBindings :: MonadState NamerState m => [FunBinding] -> m [FunBinding]
+  eliminateWildcardsBindings = mapM (\(p, e, g) -> do {
+    p' <- eliminateWildcardsPattern p;
+    e' <- eliminateWildcardsExpr e;
+    g' <- eliminateWildcardsExpr g;
     return (p', e', g')
     })
 
-  eliminate_wildcards_letrec_bindings :: MonadState NamerState m => [LetRecBinding] -> m [LetRecBinding]
-  eliminate_wildcards_letrec_bindings = mapM (\(n, e) -> do{
-    e' <- eliminate_wildcards_expr e;
+  eliminateWildcardsLetrecBindings :: MonadState NamerState m => [LetRecBinding] -> m [LetRecBinding]
+  eliminateWildcardsLetrecBindings = mapM (\(n, e) -> do{
+    e' <- eliminateWildcardsExpr e;
     return (n, e')
     })
 
-  eliminate_wildcards_expr :: MonadState NamerState m => Expr -> m Expr
-  eliminate_wildcards_expr (E_Apply e1 e2)    = do
-    e1' <- eliminate_wildcards_expr e1
-    e2' <- eliminate_wildcards_expr e2
+  eliminateWildcardsExpr :: MonadState NamerState m => Expr -> m Expr
+  eliminateWildcardsExpr (E_Apply e1 e2)    = do
+    e1' <- eliminateWildcardsExpr e1
+    e2' <- eliminateWildcardsExpr e2
     return $ E_Apply e1' e2'
-  eliminate_wildcards_expr (E_Cons e1 e2)     = do
-    e1' <- eliminate_wildcards_expr e1
-    e2' <- eliminate_wildcards_expr e2
+  eliminateWildcardsExpr (E_Cons e1 e2)     = do
+    e1' <- eliminateWildcardsExpr e1
+    e2' <- eliminateWildcardsExpr e2
     return $ E_Cons e1' e2'
-  eliminate_wildcards_expr (E_Tuple es)       = do
-    es' <- mapM eliminate_wildcards_expr es
+  eliminateWildcardsExpr (E_Tuple es)       = do
+    es' <- mapM eliminateWildcardsExpr es
     return $ E_Tuple es'
-  eliminate_wildcards_expr (E_And e1 e2)      = do
-    e1' <- eliminate_wildcards_expr e1
-    e2' <- eliminate_wildcards_expr e2
+  eliminateWildcardsExpr (E_And e1 e2)      = do
+    e1' <- eliminateWildcardsExpr e1
+    e2' <- eliminateWildcardsExpr e2
     return $ E_And e1' e2'
-  eliminate_wildcards_expr (E_Or e1 e2)       = do
-    e1' <- eliminate_wildcards_expr e1
-    e2' <- eliminate_wildcards_expr e2
+  eliminateWildcardsExpr (E_Or e1 e2)       = do
+    e1' <- eliminateWildcardsExpr e1
+    e2' <- eliminateWildcardsExpr e2
     return $ E_Or e1' e2'
-  eliminate_wildcards_expr (E_ITE e1 e2 e3)   = do
-    e1' <- eliminate_wildcards_expr e1
-    e2' <- eliminate_wildcards_expr e2
-    e3' <- eliminate_wildcards_expr e3
+  eliminateWildcardsExpr (E_ITE e1 e2 e3)   = do
+    e1' <- eliminateWildcardsExpr e1
+    e2' <- eliminateWildcardsExpr e2
+    e3' <- eliminateWildcardsExpr e3
     return $ E_ITE e1' e2' e3'
-  eliminate_wildcards_expr (E_Seq e1 e2)      = do
-    e1' <- eliminate_wildcards_expr e1
-    e2' <- eliminate_wildcards_expr e2
+  eliminateWildcardsExpr (E_Seq e1 e2)      = do
+    e1' <- eliminateWildcardsExpr e1
+    e2' <- eliminateWildcardsExpr e2
     return $ E_Seq e1' e2'
-  eliminate_wildcards_expr (E_Function bs)    = do
-    bs' <- eliminate_wildcards_bindings bs
+  eliminateWildcardsExpr (E_Function bs)    = do
+    bs' <- eliminateWildcardsBindings bs
     return $ E_Function bs'
-  eliminate_wildcards_expr (E_Let bs e1)      = do
-    bs' <- eliminate_wildcards_let_bindings bs
-    e1' <- eliminate_wildcards_expr e1
+  eliminateWildcardsExpr (E_Let bs e1)      = do
+    bs' <- eliminateWildcardsLetBindings bs
+    e1' <- eliminateWildcardsExpr e1
     return $ E_Let bs' e1'
-  eliminate_wildcards_expr (E_LetRec lrbs e1) = do
-    bs' <- eliminate_wildcards_letrec_bindings lrbs
-    e1' <- eliminate_wildcards_expr e1
+  eliminateWildcardsExpr (E_LetRec lrbs e1) = do
+    bs' <- eliminateWildcardsLetrecBindings lrbs
+    e1' <- eliminateWildcardsExpr e1
     return $ E_LetRec bs' e1'
-  eliminate_wildcards_expr e                  =
+  eliminateWildcardsExpr e                  =
     return e
 
-  eliminate_wildcards_definition :: MonadState NamerState m => Definition -> m Definition
-  eliminate_wildcards_definition (D_Let bs)    = do
-    bs' <- eliminate_wildcards_let_bindings bs
+  eliminateWildcardsDefinition :: MonadState NamerState m => Definition -> m Definition
+  eliminateWildcardsDefinition (D_Let bs)    = do
+    bs' <- eliminateWildcardsLetBindings bs
     return $ D_Let bs'
-  eliminate_wildcards_definition (D_LetRec bs) = do
-    bs' <- eliminate_wildcards_letrec_bindings bs
+  eliminateWildcardsDefinition (D_LetRec bs) = do
+    bs' <- eliminateWildcardsLetrecBindings bs
     return $ D_LetRec bs'
 
-  eliminate_wildcards_instruction :: MonadState NamerState m => Instruction -> m Instruction
-  eliminate_wildcards_instruction (IEX e) = do
-    e' <- eliminate_wildcards_expr e
+  eliminateWildcardsInstruction :: MonadState NamerState m => Instruction -> m Instruction
+  eliminateWildcardsInstruction (IEX e) = do
+    e' <- eliminateWildcardsExpr e
     return $ IEX e'
-  eliminate_wildcards_instruction (IDF d) = do
-    d' <- eliminate_wildcards_definition d
+  eliminateWildcardsInstruction (IDF d) = do
+    d' <- eliminateWildcardsDefinition d
     return $ IDF d'
 
-  eliminate_wildcards_program :: MonadState NamerState m => Program -> m Program
-  eliminate_wildcards_program = mapM eliminate_wildcards_instruction
+  eliminateWildcardsProgram :: MonadState NamerState m => Program -> m Program
+  eliminateWildcardsProgram = mapM eliminateWildcardsInstruction
 
-  eliminate_wildcards :: Program -> Program
-  eliminate_wildcards p = fst $ runState (eliminate_wildcards_program p) empty_state
+  eliminateWildcards :: Program -> Program
+  eliminateWildcards p = fst $ runState (eliminateWildcardsProgram p) emptyState

@@ -5,35 +5,35 @@
   type TypeTag    = Int
   type Arity      = Int
 
-  bool_tag :: TypeTag
-  bool_tag = 0
+  boolTag :: TypeTag
+  boolTag = 0
 
-  false_tag :: ConstrTag
-  false_tag = 0
+  falseTag :: ConstrTag
+  falseTag = 0
 
-  true_tag :: ConstrTag
-  true_tag = 1
+  trueTag :: ConstrTag
+  trueTag = 1
 
-  unit_tag :: TypeTag
-  unit_tag = 1
+  unitTag :: TypeTag
+  unitTag = 1
 
-  unit_tag_c :: ConstrTag
-  unit_tag_c = 0
+  unitTagC :: ConstrTag
+  unitTagC = 0
 
-  list_tag :: TypeTag
-  list_tag = 2
+  listTag :: TypeTag
+  listTag = 2
 
-  nil_tag :: ConstrTag
-  nil_tag = 0
+  nilTag :: ConstrTag
+  nilTag = 0
 
-  cons_tag :: ConstrTag
-  cons_tag = 1
+  consTag :: ConstrTag
+  consTag = 1
 
-  pair_tag :: TypeTag
-  pair_tag = 3
+  pairTag :: TypeTag
+  pairTag = 3
 
-  pair_tag_c :: ConstrTag
-  pair_tag_c = 0
+  pairTagC :: ConstrTag
+  pairTagC = 0
 
   data UnaryPrim =
       U_Not

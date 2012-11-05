@@ -34,21 +34,21 @@ module Languages.MiniML.State where
                     used     :: Integer
                   }
 
-  empty_mem :: Integer -> Memory
-  empty_mem n = M {
+  emptyMem :: Integer -> Memory
+  emptyMem n = M {
                     mem      = listArray (1,n) $ replicate (fromInteger n) Null,
                     freeCell = [1..n],
                     used     = n
                   }
 
-  get_free_addr :: MonadError String m => Memory -> m Integer
-  get_free_addr mem = do
+  getFreeAddr :: MonadError String m => Memory -> m Integer
+  getFreeAddr mem = do
     case freeCell mem of
-      []  -> throwError $ memory_full
+      []  -> throwError $ memoryFull
       f:_ -> return f
   
-  clear_free_addr :: Memory -> Memory
-  clear_free_addr m = m {freeCell = tail . freeCell $ m}
+  clearFreeAddr :: Memory -> Memory
+  clearFreeAddr m = m {freeCell = tail . freeCell $ m}
   
   update :: Memory -> Integer -> Expr -> Memory
   update m addr e = m {mem = (mem m)//[(addr, e)]}
@@ -60,58 +60,58 @@ module Languages.MiniML.State where
     show _ = "Memory"
 
   data InterpreterState = S {
-                              typing_env          :: TypingEnv,
-                              variable_counter    :: Integer,
+                              typingEnv          :: TypingEnv,
+                              variableCounter    :: Integer,
                               constraints         :: [(TypeExpr, TypeExpr)],
-                              simple_constraints  :: [TypeExpr],
+                              simpleConstraints  :: [TypeExpr],
                               subst               :: Subst,
-                              eval_env            :: EvalEnv,
+                              evalEnv            :: EvalEnv,
                               memory              :: Memory
                             }
 
-  empty_state :: InterpreterState
-  empty_state = S { 
-                    typing_env         = \_ -> Nothing,
-                    variable_counter   = 0,
+  emptyState :: InterpreterState
+  emptyState = S { 
+                    typingEnv         = \_ -> Nothing,
+                    variableCounter   = 0,
                     constraints        = [],
-                    simple_constraints = [],
+                    simpleConstraints = [],
                     subst              = id,
-                    eval_env           = \_ -> Nothing,
-                    memory             = empty_mem 200
+                    evalEnv           = \_ -> Nothing,
+                    memory             = emptyMem 200
                   }
 
-  get_typing_env :: MonadState InterpreterState m => m TypingEnv
-  get_typing_env = do
+  getTypingEnv :: MonadState InterpreterState m => m TypingEnv
+  getTypingEnv = do
     s <- get
-    return $ typing_env s
+    return $ typingEnv s
   
-  extend_typing_env :: MonadState InterpreterState m => String -> TypeExpr -> m ()
-  extend_typing_env v t = do
+  extendTypingEnv :: MonadState InterpreterState m => String -> TypeExpr -> m ()
+  extendTypingEnv v t = do
     s <- get
-    put $ s {typing_env = \x -> if x == v then Just t else (typing_env s) x }
+    put $ s {typingEnv = \x -> if x == v then Just t else (typingEnv s) x }
     return ()
   
-  reset_typing_env :: MonadState InterpreterState m => TypingEnv -> m ()
-  reset_typing_env env = do
+  resetTypingEnv :: MonadState InterpreterState m => TypingEnv -> m ()
+  resetTypingEnv env = do
     s <- get
-    put $ s {typing_env = env}
+    put $ s {typingEnv = env}
     return ()
   
-  fresh_type_var :: MonadState InterpreterState m => m TypeExpr
-  fresh_type_var = do
+  freshTypeVar :: MonadState InterpreterState m => m TypeExpr
+  freshTypeVar = do
     s <- get
-    let n = variable_counter s
-    put $ s {variable_counter = n + 1}
+    let n = variableCounter s
+    put $ s {variableCounter = n + 1}
     return $ TE_Var $ "a" ++ show n
   
-  add_constraint :: MonadState InterpreterState m => TypeExpr -> TypeExpr -> m ()
-  add_constraint t1 t2 = do
+  addConstraint :: MonadState InterpreterState m => TypeExpr -> TypeExpr -> m ()
+  addConstraint t1 t2 = do
     s <- get
     put $ s {constraints = (t1, t2) : constraints s}
     return ()
   
-  get_constraint :: MonadState InterpreterState m => m (Maybe (TypeExpr, TypeExpr))
-  get_constraint = do
+  getConstraint :: MonadState InterpreterState m => m (Maybe (TypeExpr, TypeExpr))
+  getConstraint = do
     s <- get
     case constraints s of
       []   -> return Nothing
@@ -119,30 +119,30 @@ module Languages.MiniML.State where
         put $ s {constraints = cs}
         return $ Just c
   
-  add_simple_constraint :: MonadState InterpreterState m => TypeExpr -> m ()
-  add_simple_constraint tp = do
+  addSimpleConstraint :: MonadState InterpreterState m => TypeExpr -> m ()
+  addSimpleConstraint tp = do
     s <- get
-    put $ s {simple_constraints = tp : simple_constraints s}
+    put $ s {simpleConstraints = tp : simpleConstraints s}
     return ()
   
-  get_simple_constraints :: MonadState InterpreterState m => m [TypeExpr]
-  get_simple_constraints = do
+  getSimpleConstraints :: MonadState InterpreterState m => m [TypeExpr]
+  getSimpleConstraints = do
     s <- get
-    return $ simple_constraints s
+    return $ simpleConstraints s
   
-  get_subst :: MonadState InterpreterState m => m Subst
-  get_subst = do
+  getSubst :: MonadState InterpreterState m => m Subst
+  getSubst = do
     s <- get
     return $ subst s
   
-  compose_subst :: MonadState InterpreterState m => Subst -> m ()
-  compose_subst z = do
+  composeSubst :: MonadState InterpreterState m => Subst -> m ()
+  composeSubst z = do
     s <- get
     put $ s {subst = z . (subst s)}
     return ()
   
-  get_memory :: MonadState InterpreterState m => m Memory
-  get_memory = do
+  getMemory :: MonadState InterpreterState m => m Memory
+  getMemory = do
     s <- get
     return $ memory s
   
@@ -150,13 +150,13 @@ module Languages.MiniML.State where
   store v = do
     s <- get
     let mem = memory s
-    addr <- get_free_addr mem
-    let mem' = clear_free_addr mem
+    addr <- getFreeAddr mem
+    let mem' = clearFreeAddr mem
     put $ s {memory = update mem' addr v}
     return addr
   
-  store_at :: (MonadState InterpreterState m, MonadError String m) => Integer -> Expr -> m ()
-  store_at addr v = do
+  storeAt :: (MonadState InterpreterState m, MonadError String m) => Integer -> Expr -> m ()
+  storeAt addr v = do
     s <- get
     let mem = memory s
     put $ s {memory = update mem addr v}
@@ -164,17 +164,17 @@ module Languages.MiniML.State where
   
   load :: MonadState InterpreterState m => Integer -> m Expr
   load addr = do
-    mem <- get_memory
+    mem <- getMemory
     return $ mem `at` addr
   
-  get_eval_env :: MonadState InterpreterState m => m EvalEnv
-  get_eval_env = do
+  getEvalEnv :: MonadState InterpreterState m => m EvalEnv
+  getEvalEnv = do
     s <- get
-    return $ eval_env s
+    return $ evalEnv s
   
-  extend_eval_env :: MonadState InterpreterState m => String -> Expr -> m ()
-  extend_eval_env v t = do
+  extendEvalEnv :: MonadState InterpreterState m => String -> Expr -> m ()
+  extendEvalEnv v t = do
     s <- get
-    put $ s {eval_env = \x -> if x == v then Just t else (eval_env s) x }
+    put $ s {evalEnv = \x -> if x == v then Just t else (evalEnv s) x }
     return ()
 

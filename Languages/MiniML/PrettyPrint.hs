@@ -200,7 +200,7 @@ module Languages.MiniML.PrettyPrint where
   pprExpr Null                                    =
     iNil
   pprExpr E_MatchFailure                          =
-    iStr "match_failure"
+    iStr "matchFailure"
   pprExpr (E_FatBar e1 e2)                        =
     iConcat [ pprAExpr e1, iStr "⌷", pprAExpr e2]
 

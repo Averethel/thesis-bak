@@ -4,6 +4,6 @@ module Compiler where
   import Compiler.TranslationToEL
 
   compile = 
-    program_to_enriched_lambda .
-    compile_pattern_matching .
+    programToEnrichedLambda .
+    compilePatternMatching .
     preprocess

@@ -56,8 +56,8 @@ module Languages.EnrichedLambda.PrettyPrint () where
   pprLetBinding (n, e) = iConcat [ iStr n, iStr " = ", iIndent (pprExpr e) ]
 
   pprClause :: Clause -> Iseq
-  pprClause (type_tag, constr_tag, vars, expr) = 
-    iConcat [iStr "<", iStr $ show type_tag, iStr ",", iStr $ show constr_tag,
+  pprClause (typeTag, constrTag, vars, expr) = 
+    iConcat [iStr "<", iStr $ show typeTag, iStr ",", iStr $ show constrTag,
              iInterleave (iStr " ") $ (iStr ">") : map iStr vars,
              iStr " -> ", pprExpr expr]
 

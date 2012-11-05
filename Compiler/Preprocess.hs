@@ -4,6 +4,6 @@ module Compiler.Preprocess where
   import Compiler.Passes.FoldTuples
  
   preprocess = 
-    fold_tuples . 
-    eliminate_wildcards .
-    enforce_unique_names
+    foldTuples . 
+    eliminateWildcards .
+    enforceUniqueNames

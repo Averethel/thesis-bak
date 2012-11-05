@@ -2,21 +2,21 @@
   FlexibleContexts
   #-}
 
-module Compiler.Passes.FatbarsToCases (fatbars_to_cases) where
+module Compiler.Passes.FatbarsToCases (fatbarsToCases) where
   import Languages.MiniML.Syntax
 
   import Control.Monad.State
 
-  rename_binding :: ValueName -> ValueName -> Binding -> Binding
-  rename_binding s t (p, e) = 
+  renameBinding :: ValueName -> ValueName -> Binding -> Binding
+  renameBinding s t (p, e) = 
     (p, rename s t e)
 
-  rename_fun_binding :: ValueName -> ValueName -> FunBinding -> FunBinding
-  rename_fun_binding s t (p, e, g) =
+  renameFunBinding :: ValueName -> ValueName -> FunBinding -> FunBinding
+  renameFunBinding s t (p, e, g) =
     (p, rename s t e, rename s t g)
 
-  rename_let_rec_binding :: ValueName -> ValueName -> LetRecBinding -> LetRecBinding
-  rename_let_rec_binding s t (v, e) =
+  renameLetRecBinding :: ValueName -> ValueName -> LetRecBinding -> LetRecBinding
+  renameLetRecBinding s t (v, e) =
     (v, rename s t e)
 
   rename :: ValueName -> ValueName -> Expr -> Expr
@@ -38,15 +38,15 @@ module Compiler.Passes.FatbarsToCases (fatbars_to_cases) where
   rename s t (E_ITE e1 e2 e3)  =
     E_ITE (rename s t e1) (rename s t e2) (rename s t e3)
   rename s t (E_Case e bs)     =
-    E_Case (rename s t e) $ map (rename_binding s t) bs
+    E_Case (rename s t e) $ map (renameBinding s t) bs
   rename s t (E_Seq e1 e2)     =
     E_Seq (rename s t e1) (rename s t e2)
   rename s t (E_Function fbs)  =
-    E_Function $ map (rename_fun_binding s t) fbs
+    E_Function $ map (renameFunBinding s t) fbs
   rename s t (E_Let bs e)      =
-    E_Let (map (rename_binding s t) bs) (rename s t e)
+    E_Let (map (renameBinding s t) bs) (rename s t e)
   rename s t (E_LetRec lrbs e) =
-    E_LetRec (map (rename_let_rec_binding s t) lrbs) (rename s t e)
+    E_LetRec (map (renameLetRecBinding s t) lrbs) (rename s t e)
   rename s t (E_FatBar e1 e2)  =
     E_FatBar (rename s t e1) (rename s t e2)
   rename _ _ e                 =
@@ -76,28 +76,28 @@ module Compiler.Passes.FatbarsToCases (fatbars_to_cases) where
   constructors CFalse = [CTrue, CFalse]
   constructors CUnit  = [CUnit]
 
-  is_var :: Equation -> Bool
-  is_var ((P_Val _):_, _) = True
-  is_var _                = False
+  isVar :: Equation -> Bool
+  isVar ((P_Val _):_, _) = True
+  isVar _                = False
 
-  is_con :: Equation -> Bool
-  is_con = not . is_var
+  isCon :: Equation -> Bool
+  isCon = not . isVar
 
-  get_con :: Equation -> Constructor
-  get_con ((P_Const C_Nil):_, _)   = Nil
-  get_con ((P_Cons _ _):_, _)      = Cons
-  get_con ((P_Tuple _):_, _)       = Pair
-  get_con ((P_Const C_True):_, _)  = CTrue
-  get_con ((P_Const C_False):_, _) = CFalse
-  get_con ((P_Const C_Unit):_, _)  = CUnit
+  getCon :: Equation -> Constructor
+  getCon ((P_Const C_Nil):_, _)   = Nil
+  getCon ((P_Cons _ _):_, _)      = Cons
+  getCon ((P_Tuple _):_, _)       = Pair
+  getCon ((P_Const C_True):_, _)  = CTrue
+  getCon ((P_Const C_False):_, _) = CFalse
+  getCon ((P_Const C_Unit):_, _)  = CUnit
 
-  to_pattern :: Constructor -> [ValueName] -> Pattern
-  to_pattern Nil    []      = P_Const C_Nil
-  to_pattern Cons   [x, xs] = P_Cons (P_Val x) $ P_Val xs
-  to_pattern Pair   [a, b]  = P_Tuple [P_Val a, P_Val b]
-  to_pattern CTrue  []      = P_Const C_True
-  to_pattern CFalse []      = P_Const C_False
-  to_pattern CUnit  []      = P_Const C_Unit
+  toPattern :: Constructor -> [ValueName] -> Pattern
+  toPattern Nil    []      = P_Const C_Nil
+  toPattern Cons   [x, xs] = P_Cons (P_Val x) $ P_Val xs
+  toPattern Pair   [a, b]  = P_Tuple [P_Val a, P_Val b]
+  toPattern CTrue  []      = P_Const C_True
+  toPattern CFalse []      = P_Const C_False
+  toPattern CUnit  []      = P_Const C_Unit
 
   subpaterns :: Pattern -> [Pattern]
   subpaterns (P_Const C_Nil)   = []
@@ -109,14 +109,14 @@ module Compiler.Passes.FatbarsToCases (fatbars_to_cases) where
 
   type NamerState = Integer
 
-  empty_state :: NamerState
-  empty_state = 0
+  emptyState :: NamerState
+  emptyState = 0
 
-  new_var :: MonadState NamerState m => m ValueName
-  new_var = do
+  newVar :: MonadState NamerState m => m ValueName
+  newVar = do
     s <- get
     put $ s + 1
-    return $ "_u_" ++ show s
+    return $ "U_" ++ show s
 
   partition :: (a -> Bool) -> [a] -> [[a]]
   partition f []       = []
@@ -130,32 +130,32 @@ module Compiler.Passes.FatbarsToCases (fatbars_to_cases) where
   tack :: a -> [[a]] -> [[a]]
   tack x xss = (x : head xss) : tail xss
 
-  match_var :: MonadState NamerState m => [ValueName] -> [([Pattern], Expr)] -> Expr -> m Expr
-  match_var (u:us) qs def = 
+  matchVar :: MonadState NamerState m => [ValueName] -> [([Pattern], Expr)] -> Expr -> m Expr
+  matchVar (u:us) qs def = 
     match us [(ps, rename v u e) | ((P_Val v) : ps, e) <- qs] def
 
   choose :: Constructor -> [Equation] -> [Equation]
-  choose c qs = [q | q <- qs, get_con q == c]
+  choose c qs = [q | q <- qs, getCon q == c]
 
-  match_clause :: MonadState NamerState m => Constructor -> [ValueName] -> [Equation] -> Expr -> m Binding
-  match_clause c (u:us) qs def = do
+  matchClause :: MonadState NamerState m => Constructor -> [ValueName] -> [Equation] -> Expr -> m Binding
+  matchClause c (u:us) qs def = do
     let k  = arity c
-    us' <- mapM (\_ -> new_var) [1..k]
+    us' <- mapM (\_ -> newVar) [1..k]
     e'  <- match (us' ++ us) [(subpaterns p ++ ps, e) | (p : ps, e) <- qs] def
-    return (to_pattern c us', e')
+    return (toPattern c us', e')
 
-  match_con :: MonadState NamerState m => [ValueName] -> [Equation] -> Expr -> m Expr
-  match_con (u:us) qs def = do
-    let cs = constructors $ get_con $ head qs
-    ms' <- mapM (\c -> match_clause c (u:us) (choose c qs) def) cs
+  matchCon :: MonadState NamerState m => [ValueName] -> [Equation] -> Expr -> m Expr
+  matchCon (u:us) qs def = do
+    let cs = constructors $ getCon $ head qs
+    ms' <- mapM (\c -> matchClause c (u:us) (choose c qs) def) cs
     return $ E_Case (E_Val u) ms'
         
-  match_var_con :: MonadState NamerState m => [ValueName] -> [Equation] -> Expr -> m Expr
-  match_var_con us qs def
-    | is_var . head $ qs =
-      match_var us qs def
-    | is_con . head $ qs = 
-      match_con us qs def
+  matchVarCon :: MonadState NamerState m => [ValueName] -> [Equation] -> Expr -> m Expr
+  matchVarCon us qs def
+    | isVar . head $ qs =
+      matchVar us qs def
+    | isCon . head $ qs = 
+      matchCon us qs def
 
   foldrM :: Monad m => (b -> a -> m a) -> a -> [b] -> m a
   foldrM f a []     = return a
@@ -167,7 +167,7 @@ module Compiler.Passes.FatbarsToCases (fatbars_to_cases) where
   match []     qs def = 
     return $ foldr E_FatBar def [e | ([], e) <- qs ]
   match (u:us) qs def =
-    foldrM (match_var_con (u:us)) def $ partition is_var qs
+    foldrM (matchVarCon (u:us)) def $ partition isVar qs
 
   decompose :: Expr -> [Equation]
   decompose E_MatchFailure                                      =
@@ -177,76 +177,76 @@ module Compiler.Passes.FatbarsToCases (fatbars_to_cases) where
   decompose (E_FatBar (E_Apply (E_Function [(p, e, g)]) (E_Val _)) e2)              =
     ([p], E_ITE g e E_MatchFailure) : decompose e2
 
-  fatbars_to_cases_binding :: MonadState NamerState m => Binding -> m Binding
-  fatbars_to_cases_binding (p, e) = do
-    e' <- fatbars_to_cases_expr e
+  fatbarsToCasesBinding :: MonadState NamerState m => Binding -> m Binding
+  fatbarsToCasesBinding (p, e) = do
+    e' <- fatbarsToCasesExpr e
     return (p, e')
 
-  fatbars_to_cases_letrec_binding :: MonadState NamerState m => LetRecBinding -> m LetRecBinding
-  fatbars_to_cases_letrec_binding (v, e) = do
-    e' <- fatbars_to_cases_expr e
+  fatbarsToCasesLetrecBinding :: MonadState NamerState m => LetRecBinding -> m LetRecBinding
+  fatbarsToCasesLetrecBinding (v, e) = do
+    e' <- fatbarsToCasesExpr e
     return (v, e')
 
-  fatbars_to_cases_expr :: MonadState NamerState m => Expr -> m Expr
-  fatbars_to_cases_expr (E_Apply e1 e2)                  = do
-    e1' <- fatbars_to_cases_expr e1
-    e2' <- fatbars_to_cases_expr e2
+  fatbarsToCasesExpr :: MonadState NamerState m => Expr -> m Expr
+  fatbarsToCasesExpr (E_Apply e1 e2)                  = do
+    e1' <- fatbarsToCasesExpr e1
+    e2' <- fatbarsToCasesExpr e2
     return $ E_Apply e1' e2'
-  fatbars_to_cases_expr (E_Cons e1 e2)                   = do
-    e1' <- fatbars_to_cases_expr e1
-    e2' <- fatbars_to_cases_expr e2
+  fatbarsToCasesExpr (E_Cons e1 e2)                   = do
+    e1' <- fatbarsToCasesExpr e1
+    e2' <- fatbarsToCasesExpr e2
     return $ E_Cons e1' e2'
-  fatbars_to_cases_expr (E_Tuple es)                     = do
-    es' <- mapM fatbars_to_cases_expr es
+  fatbarsToCasesExpr (E_Tuple es)                     = do
+    es' <- mapM fatbarsToCasesExpr es
     return $ E_Tuple es'
-  fatbars_to_cases_expr (E_And e1 e2)                    = do
-    e1' <- fatbars_to_cases_expr e1
-    e2' <- fatbars_to_cases_expr e2
+  fatbarsToCasesExpr (E_And e1 e2)                    = do
+    e1' <- fatbarsToCasesExpr e1
+    e2' <- fatbarsToCasesExpr e2
     return $ E_And e1' e2'
-  fatbars_to_cases_expr (E_Or e1 e2)                     = do
-    e1' <- fatbars_to_cases_expr e1
-    e2' <- fatbars_to_cases_expr e2
+  fatbarsToCasesExpr (E_Or e1 e2)                     = do
+    e1' <- fatbarsToCasesExpr e1
+    e2' <- fatbarsToCasesExpr e2
     return $ E_Or e1' e2'
-  fatbars_to_cases_expr (E_ITE e1 e2 e3)                 = do
-    e1' <- fatbars_to_cases_expr e1
-    e2' <- fatbars_to_cases_expr e2
-    e3' <- fatbars_to_cases_expr e3
+  fatbarsToCasesExpr (E_ITE e1 e2 e3)                 = do
+    e1' <- fatbarsToCasesExpr e1
+    e2' <- fatbarsToCasesExpr e2
+    e3' <- fatbarsToCasesExpr e3
     return $ E_ITE e1' e2' e3'
-  fatbars_to_cases_expr (E_Seq e1 e2)                    = do
-    e1' <- fatbars_to_cases_expr e1
-    e2' <- fatbars_to_cases_expr e2
+  fatbarsToCasesExpr (E_Seq e1 e2)                    = do
+    e1' <- fatbarsToCasesExpr e1
+    e2' <- fatbarsToCasesExpr e2
     return $ E_Seq e1' e2'
-  fatbars_to_cases_expr (E_Function
+  fatbarsToCasesExpr (E_Function
     [(P_Val v, e@(E_FatBar e1 e2), g@(E_Const C_True))]) = do
     cs <- match [v] (decompose e) E_MatchFailure
     return $ E_Function [(P_Val v, cs, g)]
-  fatbars_to_cases_expr (E_Let bs e)                     = do
-    bs' <- mapM fatbars_to_cases_binding bs
-    e'  <- fatbars_to_cases_expr e
+  fatbarsToCasesExpr (E_Let bs e)                     = do
+    bs' <- mapM fatbarsToCasesBinding bs
+    e'  <- fatbarsToCasesExpr e
     return $ E_Let bs' e'
-  fatbars_to_cases_expr (E_LetRec lrbs e)                = do
-    lrbs' <- mapM fatbars_to_cases_letrec_binding lrbs
-    e'    <- fatbars_to_cases_expr e
+  fatbarsToCasesExpr (E_LetRec lrbs e)                = do
+    lrbs' <- mapM fatbarsToCasesLetrecBinding lrbs
+    e'    <- fatbarsToCasesExpr e
     return $ E_LetRec lrbs' e'
-  fatbars_to_cases_expr e                                =
+  fatbarsToCasesExpr e                                =
     return e
 
-  fatbars_to_cases_definition :: MonadState NamerState m => Definition -> m Definition
-  fatbars_to_cases_definition (D_Let bs)      = do
-    bs' <- mapM fatbars_to_cases_binding bs
+  fatbarsToCasesDefinition :: MonadState NamerState m => Definition -> m Definition
+  fatbarsToCasesDefinition (D_Let bs)      = do
+    bs' <- mapM fatbarsToCasesBinding bs
     return $ D_Let bs'
-  fatbars_to_cases_definition (D_LetRec lrbs) = do
-    lrbs' <- mapM fatbars_to_cases_letrec_binding lrbs
+  fatbarsToCasesDefinition (D_LetRec lrbs) = do
+    lrbs' <- mapM fatbarsToCasesLetrecBinding lrbs
     return $ D_LetRec lrbs'
 
-  fatbars_to_cases_instruction :: MonadState NamerState m => Instruction -> m Instruction
-  fatbars_to_cases_instruction (IDF df) = do
-    df' <- fatbars_to_cases_definition df
+  fatbarsToCasesInstruction :: MonadState NamerState m => Instruction -> m Instruction
+  fatbarsToCasesInstruction (IDF df) = do
+    df' <- fatbarsToCasesDefinition df
     return $ IDF df'
-  fatbars_to_cases_instruction (IEX ex) = do
-    ex' <- fatbars_to_cases_expr ex
+  fatbarsToCasesInstruction (IEX ex) = do
+    ex' <- fatbarsToCasesExpr ex
     return $ IEX ex'
 
-  fatbars_to_cases :: Program -> Program
-  fatbars_to_cases p = 
-    fst $ runState (mapM fatbars_to_cases_instruction p) empty_state
+  fatbarsToCases :: Program -> Program
+  fatbarsToCases p = 
+    fst $ runState (mapM fatbarsToCasesInstruction p) emptyState
