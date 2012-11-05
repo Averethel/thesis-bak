@@ -100,5 +100,6 @@
       T_Var String
     | T_Arrow Type Type
     | T_Ref Type
+    | T_Int
     | T_Defined TypeTag [Type]
     deriving Eq
