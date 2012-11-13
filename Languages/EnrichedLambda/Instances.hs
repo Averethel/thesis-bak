@@ -6,12 +6,13 @@
   #-}
 
 module Languages.EnrichedLambda.Instances where
-  import qualified Utils.Classes.Clojure    as CC
-  import qualified Utils.Classes.Expression as EC
-  import qualified Utils.Classes.Language   as LC
-  import qualified Utils.Classes.Program    as PC
-  import qualified Utils.Classes.Type       as TC
-  import qualified Utils.Classes.Value      as VC
+  import qualified Utils.Classes.Clojure     as CC
+  import qualified Utils.Classes.Expression  as EC
+  import qualified Utils.Classes.Instruction as IC
+  import qualified Utils.Classes.Language    as LC
+  import qualified Utils.Classes.Program     as PC
+  import qualified Utils.Classes.Type        as TC
+  import qualified Utils.Classes.Value       as VC
   import Utils.EvalEnv
 
   import Languages.EnrichedLambda.PrettyPrint
@@ -20,6 +21,8 @@ module Languages.EnrichedLambda.Instances where
   import Data.Maybe
 
   instance PC.Program Program
+
+  instance IC.Instruction Instruction
 
   instance TC.Type Type where
     isVar (T_Var _) = True
