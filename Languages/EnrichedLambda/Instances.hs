@@ -1,24 +1,34 @@
 {-# LANGUAGE
   FlexibleInstances,
+  MultiParamTypeClasses,
+  ScopedTypeVariables,
   TypeSynonymInstances
   #-}
 
 module Languages.EnrichedLambda.Instances where
-  import qualified Utils.LanguageClass as LC
+  import qualified Utils.Classes.Clojure    as CC
+  import qualified Utils.Classes.Expression as EC
+  import qualified Utils.Classes.Language   as LC
+  import qualified Utils.Classes.Program    as PC
+  import qualified Utils.Classes.Type       as TC
+  import qualified Utils.Classes.Value      as VC
+  import Utils.EvalEnv
 
   import Languages.EnrichedLambda.PrettyPrint
   import Languages.EnrichedLambda.Syntax
 
-  instance LC.Program Program
+  import Data.Maybe
 
-  instance LC.Type Type where
+  instance PC.Program Program
+
+  instance TC.Type Type where
     isVar (T_Var _) = True
     isVar _         = False
 
     canCompare (T_Var v)         = True
     canCompare (T_Arrow tp1 tp2) = False
-    canCompare (T_Ref tp)        = True
-    canCompare (T_Defined _ ts)  = all LC.canCompare ts
+    canCompare (T_Ref tp)        = TC.canCompare tp
+    canCompare (T_Defined _ ts)  = all TC.canCompare ts
 
     getVar (T_Var v) = v
 
@@ -26,7 +36,7 @@ module Languages.EnrichedLambda.Instances where
     canUnify _                  (T_Var _)          = True
     canUnify (T_Arrow _ _)      (T_Arrow _ _)      = True
     canUnify (T_Ref _)          (T_Ref _)          = True
-    canUnify (T_Defined n1 ts1) (T_Defined n2 ts2) = n1 == n2 && 
+    canUnify (T_Defined n1 ts1) (T_Defined n2 ts2) = n1 == n2 &&
                                                     length ts1 == length ts2
     canUnify _                  _                  = False
 
@@ -36,17 +46,23 @@ module Languages.EnrichedLambda.Instances where
       | n1 == n2 && length ts1 == length ts2             = zip ts1 ts2
 
     applySubst t []     = t
-    applySubst t (s:ss) = LC.applySubst (applySingleSubst t s) ss where
+    applySubst t (s:ss) = TC.applySubst (applySingleSubst t s) ss where
       applySingleSubst (T_Var v)        (s, t)
         | v == s                               = t
         | otherwise                            = T_Var v
       applySingleSubst (T_Arrow t1 t2)  s      = T_Arrow (applySingleSubst t1 s)
                                                          (applySingleSubst t2 s)
       applySingleSubst (T_Ref t)        s      = T_Ref $ applySingleSubst t s
-      applySingleSubst (T_Defined n ts) s      = T_Defined n $ map 
+      applySingleSubst (T_Defined n ts) s      = T_Defined n $ map
                                                   (flip applySingleSubst s)
                                                   ts
       applySingleSubst T_Int            _      = T_Int
 
 
-  instance LC.Value Value
+  instance EC.Expression Expr
+
+  instance VC.Value Value where
+    nullValue = V_Null
+
+  instance CC.Clojure Value Expr where
+    mkClo (E_Function x e) env = V_Clo env x e
