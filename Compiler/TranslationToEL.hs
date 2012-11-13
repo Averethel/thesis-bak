@@ -61,7 +61,7 @@ module Compiler.TranslationToEL (programToEnrichedLambda) where
     EL.E_Constr EL.unitTag EL.unitTagC 0
 
   bindingToEnrichedLambda :: ML.Binding -> EL.LetBinding
-  bindingToEnrichedLambda (ML.P_Val n, e) = 
+  bindingToEnrichedLambda (ML.P_Val n, e) =
     (n, expressionToEnrichedLambda e)
 
   letrecBindingEnrichedLambda :: ML.LetRecBinding -> EL.LetBinding
@@ -70,22 +70,22 @@ module Compiler.TranslationToEL (programToEnrichedLambda) where
 
   bindingToClause :: ML.Binding -> EL.Clause
   bindingToClause (ML.P_Const ML.C_True, e)                 =
-    (EL.boolTag, EL.trueTag, [], 
+    (EL.boolTag, EL.trueTag, [],
      expressionToEnrichedLambda e)
   bindingToClause (ML.P_Const ML.C_False, e)                =
-    (EL.boolTag, EL.falseTag, [], 
+    (EL.boolTag, EL.falseTag, [],
      expressionToEnrichedLambda e)
   bindingToClause (ML.P_Const ML.C_Unit, e)                 =
-    (EL.unitTag, EL.unitTagC, [], 
+    (EL.unitTag, EL.unitTagC, [],
      expressionToEnrichedLambda e)
   bindingToClause (ML.P_Const ML.C_Nil, e)                  =
-    (EL.listTag, EL.nilTag, [], 
+    (EL.listTag, EL.nilTag, [],
      expressionToEnrichedLambda e)
   bindingToClause (ML.P_Cons (ML.P_Val x) (ML.P_Val xs), e) =
-    (EL.listTag, EL.consTag, [x, xs], 
+    (EL.listTag, EL.consTag, [x, xs],
      expressionToEnrichedLambda e)
   bindingToClause (ML.P_Tuple [ML.P_Val a, ML.P_Val b], e)  =
-    (EL.pairTag, EL.pairTagC, [a, b], 
+    (EL.pairTag, EL.pairTagC, [a, b],
      expressionToEnrichedLambda e)
 
   expressionToEnrichedLambda :: ML.Expr -> EL.Expr
@@ -104,24 +104,24 @@ module Compiler.TranslationToEL (programToEnrichedLambda) where
     in
       EL.E_Apply e1' e2'
   expressionToEnrichedLambda (ML.E_Cons e1 e2)     =
-    let 
+    let
       e1' = expressionToEnrichedLambda e1
       e2' = expressionToEnrichedLambda e2
     in
-      EL.E_Apply 
-        (EL.E_Apply 
-          (EL.E_Constr EL.listTag EL.consTag 2) 
-          e1') 
+      EL.E_Apply
+        (EL.E_Apply
+          (EL.E_Constr EL.listTag EL.consTag 2)
+          e1')
         e2'
   expressionToEnrichedLambda (ML.E_Tuple [e1, e2]) =
     let
       e1' = expressionToEnrichedLambda e1
       e2' = expressionToEnrichedLambda e2
     in
-      EL.E_Apply 
-        (EL.E_Apply 
-          (EL.E_Constr EL.pairTag EL.pairTagC 2) 
-          e1') 
+      EL.E_Apply
+        (EL.E_Apply
+          (EL.E_Constr EL.pairTag EL.pairTagC 2)
+          e1')
         e2'
   expressionToEnrichedLambda (ML.E_And e1 e2)      =
     let
@@ -130,18 +130,18 @@ module Compiler.TranslationToEL (programToEnrichedLambda) where
     in
       EL.E_Apply (EL.E_Apply (EL.E_BPrim EL.B_And) e1') e2'
   expressionToEnrichedLambda (ML.E_Or e1 e2)       =
-    let 
+    let
       e1' = expressionToEnrichedLambda e1
       e2' = expressionToEnrichedLambda e2
     in
       EL.E_Apply (EL.E_Apply (EL.E_BPrim EL.B_Or) e1') e2'
   expressionToEnrichedLambda (ML.E_ITE e1 e2 e3)   =
-    let 
+    let
       e1' = expressionToEnrichedLambda e1
       e2' = expressionToEnrichedLambda e2
       e3' = expressionToEnrichedLambda e3
     in
-      EL.E_Case e1' [(EL.boolTag, EL.trueTag,  [], e2'), 
+      EL.E_Case e1' [(EL.boolTag, EL.trueTag,  [], e2'),
                      (EL.boolTag, EL.falseTag, [], e3')]
   expressionToEnrichedLambda (ML.E_Case e bs)      =
     let
@@ -155,7 +155,7 @@ module Compiler.TranslationToEL (programToEnrichedLambda) where
       e2' = expressionToEnrichedLambda e2
     in
       EL.E_Seq e1' e2'
-  expressionToEnrichedLambda (ML.E_Function 
+  expressionToEnrichedLambda (ML.E_Function
              [(ML.P_Val v, e, ML.E_Const ML.C_True)]) =
     EL.E_Function v $ expressionToEnrichedLambda e
   expressionToEnrichedLambda (ML.E_Let bs e)       =
@@ -182,14 +182,14 @@ module Compiler.TranslationToEL (programToEnrichedLambda) where
     EL.Null
 
   bindingToDefinition :: ML.Binding -> EL.Binding
-  bindingToDefinition (ML.P_Val n, ML.E_Function 
+  bindingToDefinition (ML.P_Val n, ML.E_Function
                 [(ML.P_Val v, e, ML.E_Const ML.C_True)]) =
     (n, [v], expressionToEnrichedLambda e)
   bindingToDefinition (ML.P_Val n, e)                  =
     (n, [], expressionToEnrichedLambda e)
 
   letrecBindingToDefinition :: ML.LetRecBinding -> EL.Binding
-  letrecBindingToDefinition (n, ML.E_Function 
+  letrecBindingToDefinition (n, ML.E_Function
                  [(ML.P_Val v, e, ML.E_Const ML.C_True)]) =
     (n, [v], expressionToEnrichedLambda e)
   letrecBindingToDefinition (n, e)                     =
@@ -209,9 +209,9 @@ module Compiler.TranslationToEL (programToEnrichedLambda) where
   definitionsToFront :: ML.Program -> ([ML.Definition], ML.Expr)
   definitionsToFront = definitionsToFront' [] [] where
     definitionsToFront' :: [ML.Definition] -> [ML.Expr] -> ML.Program -> ([ML.Definition], ML.Expr)
-    definitionsToFront' dfs []     []               = 
+    definitionsToFront' dfs []     []               =
       (reverse dfs, ML.Null)
-    definitionsToFront' dfs (e:es) []               = 
+    definitionsToFront' dfs (e:es) []               =
       (reverse dfs, foldr (\e -> ML.E_Let [(ML.P_Val "it", e)]) e $ reverse es)
     definitionsToFront' dfs es     ((ML.IDF df):is) =
       definitionsToFront' (df:dfs) es is
@@ -219,5 +219,5 @@ module Compiler.TranslationToEL (programToEnrichedLambda) where
       definitionsToFront' dfs (ex:es) is
 
   programToEnrichedLambda :: ML.Program -> EL.Program
-  programToEnrichedLambda prog = 
+  programToEnrichedLambda prog =
     progPairToEnrichedLambda $ definitionsToFront prog
