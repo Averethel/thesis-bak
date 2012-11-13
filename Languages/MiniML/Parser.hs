@@ -131,9 +131,9 @@ module Languages.MiniML.Parser  where
                 reservedOp "="
                 e <- expression
                 return (i, e)
-  
+
   letrecBindings :: Parser [LetRecBinding]
-  letrecBindings = do 
+  letrecBindings = do
                     d <- preLetRec
                     ds <- many (reserved "and" *> preLetRec)
                     return $ d:ds
