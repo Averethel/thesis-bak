@@ -1,10 +1,9 @@
 {-# LANGUAGE
-  DatatypeContexts,
   FlexibleContexts
   #-}
 
 module Utils.State where
-  import Utils.LanguageClass
+  import Utils.Classes.Type
 
   import Control.Monad.State
 

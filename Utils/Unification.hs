@@ -3,8 +3,8 @@
   #-}
 
 module Utils.Unification where
+  import Utils.Classes.Type
   import Utils.Errors
-  import Utils.LanguageClass
   import Utils.State
   import Utils.Subst
 
@@ -16,7 +16,7 @@ module Utils.Unification where
     c <- getSimpleConstraint
     case c of
       Nothing -> return ()
-      Just t  -> do 
+      Just t  -> do
           let t' = t `applySubst` subst
           case canCompare t' of
             True  -> checkCompare subst
@@ -32,8 +32,8 @@ module Utils.Unification where
           checkCompare s
           return s
         Just (a, b) -> do
-          let a' = a `applySubst` s 
-          let b' = b `applySubst` s 
+          let a' = a `applySubst` s
+          let b' = b `applySubst` s
           case isVar a' of
             True  -> unify' $ composeSubst (getVar a', b') s
             False -> case isVar b' of
