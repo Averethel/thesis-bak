@@ -60,12 +60,12 @@ module Compiler.TranslationToEL (programToEnrichedLambda) where
   constantToEnrichedLambda (ML.C_Unit)  =
     EL.E_Constr EL.unitTag EL.unitTagC 0
 
-  bindingToEnrichedLambda :: ML.Binding -> EL.LetBinding
+  bindingToEnrichedLambda :: ML.Binding -> EL.Binding
   bindingToEnrichedLambda (ML.P_Val n, e) =
     (n, expressionToEnrichedLambda e)
 
-  letrecBindingEnrichedLambda :: ML.LetRecBinding -> EL.LetBinding
-  letrecBindingEnrichedLambda (v, e) =
+  letrecBindingToEnrichedLambda :: ML.LetRecBinding -> EL.Binding
+  letrecBindingToEnrichedLambda (v, e) =
     (v, expressionToEnrichedLambda e)
 
   bindingToClause :: ML.Binding -> EL.Clause
@@ -166,7 +166,7 @@ module Compiler.TranslationToEL (programToEnrichedLambda) where
       EL.E_Let bs' e'
   expressionToEnrichedLambda (ML.E_LetRec lrbs e)  =
     let
-      lrbs' = map letrecBindingEnrichedLambda lrbs
+      lrbs' = map letrecBindingToEnrichedLambda lrbs
       e'    = expressionToEnrichedLambda e
     in
       EL.E_LetRec lrbs' e'
@@ -178,29 +178,12 @@ module Compiler.TranslationToEL (programToEnrichedLambda) where
       e2' = expressionToEnrichedLambda e2
     in
       EL.E_Rescue e1' e2'
-  expressionToEnrichedLambda ML.Null               =
-    EL.Null
-
-  bindingToDefinition :: ML.Binding -> EL.Binding
-  bindingToDefinition (ML.P_Val n, ML.E_Function
-                [(ML.P_Val v, e, ML.E_Const ML.C_True)]) =
-    (n, [v], expressionToEnrichedLambda e)
-  bindingToDefinition (ML.P_Val n, e)                  =
-    (n, [], expressionToEnrichedLambda e)
-
-  letrecBindingToDefinition :: ML.LetRecBinding -> EL.Binding
-  letrecBindingToDefinition (n, ML.E_Function
-                 [(ML.P_Val v, e, ML.E_Const ML.C_True)]) =
-    (n, [v], expressionToEnrichedLambda e)
-  letrecBindingToDefinition (n, e)                     =
-    (n, [], expressionToEnrichedLambda e)
-
 
   definitionToEnrichedLambda :: ML.Definition -> EL.Definition
   definitionToEnrichedLambda (ML.D_Let bs)      =
-    EL.D_Let $ map bindingToDefinition bs
+    EL.D_Let $ map bindingToEnrichedLambda bs
   definitionToEnrichedLambda (ML.D_LetRec lrbs) =
-    EL.D_LetRec $ map letrecBindingToDefinition lrbs
+    EL.D_LetRec $ map letrecBindingToEnrichedLambda lrbs
 
   progPairToEnrichedLambda :: ([ML.Definition], ML.Expr) -> EL.Program
   progPairToEnrichedLambda (dfs, e) =
