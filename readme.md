@@ -9,14 +9,21 @@ Implementing MiniML compiler to ZINC bytecode
 Currently working on
 ====================
 * Interpreter for enriched lambda calculus (feature/enriched-lambda-interpreter)
-* Defunctionalization of MiniML interpreter & ectracting common interface parts to a module (feature/miniml-interpreter-refactor) 
+* Defunctionalization of MiniML interpreter & ectracting common interface parts to a module (feature/miniml-interpreter-refactor)
 
 Changelog
 =========
+* 13 XI 2012
+    * [Languages]
+        * Values as memory cells in Enriched Lambda Calculus
+        * Evaluator for Enriched Lambda Calculus
+    * [Utils]
+        * Cleaning and restructuring typeclasses
+        * Distinguishing evaluation environment from typing environment
 * 5 XI 2012
     * [Languages]
-        * Added Value type to Enriched Lambdda Calculus
-        * Typing of enriched Enriched Lambdda Calculus
+        * Added Value type to Enriched Lambda Calculus
+        * Typing of enriched Enriched Lambda Calculus
 * 4 XI 2012
     * [Languages]
         * Added (internal) guards on patterns in MiniML
@@ -55,7 +62,7 @@ Changelog
         * Deleted Enriched Lambda Calculus With Low Level Types
         * Rewrote Enriched Lambda Calculus syntax to be similar to Core language described in Implementing Functional Languages: a tutorial
 * 18 VIII 2012
-    * [Languages] 
+    * [Languages]
         * MiniML interpreter reimplemented using monads
         * Mutually recursive letrec in Enriched Lambda Calculus With Low Level Types
         * Added definitions to Enriched Lambda Calculus With Low Level Types
@@ -84,13 +91,13 @@ Changelog
     * [Compiler]
         *Translation from Enriched Lambda Calculus to Enriched Lambda Calculus With Low Level Types
 * 27    V 2012
-    * [Compiler] 
+    * [Compiler]
         * Translation from MiniML to Enriched Lambda Calculus
 *  4    V 2012
     * [Languages]
         * Working version of Enriched Lambda Calculus interpreter
 * 14   IV 2012
-    * [Languages] 
+    * [Languages]
         * Working version of MiniML interpreter
 *  5  III 2012
     * [Others]
