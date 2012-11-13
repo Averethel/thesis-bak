@@ -176,6 +176,13 @@ module Languages.EnrichedLambda.PrettyPrint () where
   instance Show Definition where
     show = show . pprDefinition
 
+  pprInstruction :: Instruction -> Iseq
+  pprInstruction (IEX ex) = pprExpr ex
+  pprInstruction (IDF df) = pprDefinition df
+
+  instance Show Instruction where
+    show = show . pprInstruction
+
   pprProgram :: Program -> Iseq
   pprProgram ([],   expr) =
     iConcat [pprExpr expr, iStr ";;", iNewline]

@@ -98,6 +98,11 @@
     | D_LetRec [Binding]
     deriving Eq
 
+  data Instruction =
+      IEX Expr
+    | IDF Definition
+    deriving Eq
+
   type Program = ([Definition], Expr)
 
   data Type =
