@@ -1,10 +1,10 @@
-{-# LANGUAGE 
+{-# LANGUAGE
   FlexibleInstances,
   TypeSynonymInstances,
   IncoherentInstances
   #-}
 
-module Languages.EnrichedLambda.PrettyPrint () where 
+module Languages.EnrichedLambda.PrettyPrint () where
   import Utils.Iseq
 
   import Languages.EnrichedLambda.Syntax
@@ -19,15 +19,17 @@ module Languages.EnrichedLambda.PrettyPrint () where
   isAtomicExpr _              = False
 
   isAtomicValue :: Value -> Bool
-  isAtomicValue (V_UPrim _)    = True
-  isAtomicValue (V_BPrim _)    = True
-  isAtomicValue V_Unit         = True
-  isAtomicValue (V_Int _)      = True
-  isAtomicValue (V_Bool _)     = True
-  isAtomicValue (V_List [])    = True
-  isAtomicValue (V_List (_:_)) = False
-  isAtomicValue (V_Pair _ _)   = True
-  isAtomicValue (V_Fun _)      = True
+  isAtomicValue (V_UPrim _)       = True
+  isAtomicValue (V_BPrim _)       = True
+  isAtomicValue (V_Int _)         = True
+  isAtomicValue (V_Pointer _)     = True
+  isAtomicValue (V_Clo _ _ _)     = True
+  isAtomicValue V_Null            = True
+  isAtomicValue (V_Cell tp cs vs) =
+    (tp == boolTag && (cs == falseTag || cs == trueTag) && vs == []) ||
+    (tp == unitTag && cs == unitTagC && vs == []) ||
+    (tp == listTag && cs == nilTag && vs == []) ||
+    (tp == pairTag && cs == pairTagC)
 
   isAtomicType :: Type -> Bool
   isAtomicType (T_Arrow _ _)        = False
@@ -43,7 +45,7 @@ module Languages.EnrichedLambda.PrettyPrint () where
   pprUnaryPrim U_Tail   = iStr "tl"
   pprUnaryPrim U_Fst    = iStr "fst"
   pprUnaryPrim U_Snd    = iStr "snd"
-  
+
   instance Show UnaryPrim where
     show = show . pprUnaryPrim
 
@@ -65,15 +67,15 @@ module Languages.EnrichedLambda.PrettyPrint () where
     | isAtomicExpr e = pprExpr e
     | otherwise      = iStr "(" `iAppend` pprExpr e `iAppend` iStr ")"
 
-  pprLetBindings :: [LetBinding] -> Iseq
-  pprLetBindings defns = iInterleave sep (map pprLetBinding defns) where
+  pprBindings :: [Binding] -> Iseq
+  pprBindings defns = iInterleave sep (map pprBinding defns) where
     sep = iConcat [ iStr " and", iNewline ]
-  
-  pprLetBinding :: LetBinding -> Iseq
-  pprLetBinding (n, e) = iConcat [ iStr n, iStr " = ", iIndent (pprExpr e) ]
+
+  pprBinding :: Binding -> Iseq
+  pprBinding (n, e) = iConcat [ iStr n, iStr " = ", iIndent (pprExpr e) ]
 
   pprClause :: Clause -> Iseq
-  pprClause (typeTag, constrTag, vars, expr) = 
+  pprClause (typeTag, constrTag, vars, expr) =
     iConcat [iStr "<", iStr $ show typeTag, iStr ",", iStr $ show constrTag,
              iInterleave (iStr " ") $ (iStr ">") : map iStr vars,
              iStr " -> ", pprExpr expr]
@@ -90,18 +92,16 @@ module Languages.EnrichedLambda.PrettyPrint () where
     iStr ident
   pprExpr (E_Num n)                              =
     iStr $ show n
-  pprExpr (E_Location n)                         =
-    (iStr "Mem@") `iAppend` (iStr $ show n)
   pprExpr (E_Constr tp t a)                      =
-    iStr "Pack{" `iAppend` 
+    iStr "Pack{" `iAppend`
     iInterleave (iStr ",") [iStr $ show tp, iStr $ show t, iStr $ show a] `iAppend`
     iStr "}"
   pprExpr (E_Seq e1 e2)                          =
-    iConcat [ iNewline, indentation, iIndent $ pprExpr e1, iStr ";", 
+    iConcat [ iNewline, indentation, iIndent $ pprExpr e1, iStr ";",
               iNewline, indentation, iIndent $ pprExpr e2]
   pprExpr (E_Apply (E_Apply (E_BPrim bp) e1) e2)
     | isInfix bp                                 =
-      iConcat [ pprAExpr e1, iStr " ", pprBinaryPrim bp, 
+      iConcat [ pprAExpr e1, iStr " ", pprBinaryPrim bp,
                 iStr " ", pprAExpr e2]
   pprExpr (E_Apply e1 e2)                        =
     (pprExpr e1) `iAppend` (iStr " ") `iAppend` (pprAExpr e2)
@@ -112,19 +112,19 @@ module Languages.EnrichedLambda.PrettyPrint () where
               indentation, iIndent $ pprExpr e2 ]
   pprExpr (E_Let bs e)                           =
     iConcat [ iStr "let", iNewline,
-              indentation, iIndent $ pprLetBindings bs,
+              indentation, iIndent $ pprBindings bs,
               iNewline, iStr "in", iNewline,
               indentation, iIndent $ pprExpr e ]
   pprExpr (E_LetRec bs e)                        =
     iConcat [ iStr "letrec", iNewline,
-              indentation, iIndent $ pprLetBindings bs,
+              indentation, iIndent $ pprBindings bs,
               iNewline, iStr "in ",
               indentation, iIndent $ pprExpr e ]
   pprExpr (E_Case e cs)                          =
     iConcat [ iStr "case ", pprExpr e, iStr " of", iNewline,
               indentation, iIndent $ pprClauses cs]
   pprExpr (E_Function var e)                     =
-    iConcat [ iStr "function ", iStr var, 
+    iConcat [ iStr "function ", iStr var,
               iStr " -> ", pprExpr e]
   pprExpr E_MatchFailure                         =
     iStr "Match_Failure"
@@ -138,46 +138,40 @@ module Languages.EnrichedLambda.PrettyPrint () where
     | otherwise       = iStr "(" `iAppend` pprValue v `iAppend` iStr ")"
 
   pprValue :: Value -> Iseq
-  pprValue (V_UPrim up)     = iConcat [ iStr "<", 
-                                        pprUnaryPrim up,
-                                        iStr ">" ]
-  pprValue (V_BPrim bp)     = iConcat [ iStr "<",
-                                        pprBinaryPrim bp,
-                                        iStr ">" ]
-  pprValue V_Unit           = iStr . show $ ()
-  pprValue (V_Int n)        = iStr . show $ n
-  pprValue (V_Bool b)       = iStr . show $ b
-  pprValue (V_List [])      = iStr "[]"
-  pprValue (V_List (v:vs))  = pprAValue v `iAppend` 
-                              iStr "::" `iAppend`
-                              (pprAValue $ V_List vs)
-  pprValue (V_Pair a b)     = iConcat [ iStr "(",  
-                                        pprAValue a,
-                                        iStr ", ",
-                                        pprAValue b,
-                                        iStr ")" ]
-  pprValue (V_Fun _)        = iStr "Function."
+  pprValue (V_UPrim up)      = iConcat [ iStr "<",
+                                         pprUnaryPrim up,
+                                         iStr ">" ]
+  pprValue (V_BPrim bp)      = iConcat [ iStr "<",
+                                         pprBinaryPrim bp,
+                                         iStr ">" ]
+  pprValue (V_Int n)         = iStr . show $ n
+  pprValue (V_Clo _ _ _)     = iStr "Function."
+  pprValue (V_Error s)       = iStr "Exception: " `iAppend`
+                               iStr s
+  pprValue (V_Pointer n)     = (iStr "Mem@") `iAppend`
+                               (iStr $ show n)
+  pprValue V_Null            = iNil
+  pprValue (V_Cell tp cs vs)
+    | tp == boolTag && cs == falseTag && vs == [] = iStr "false"
+    | tp == boolTag && cs == trueTag  && vs == [] = iStr "true"
+    | tp == unitTag && cs == unitTagC && vs == [] = iStr "()"
+    | tp == listTag && cs == nilTag   && vs == [] = iStr "[]"
+    | tp == listTag && cs == consTag              =
+      case vs of
+        [h, t] -> iConcat [ pprAValue h, iStr " :: ", pprAValue t ]
+    | tp == pairTag && cs == pairTagC             =
+      case vs of
+        [a, b] -> iConcat [ iStr "(", pprAValue a, iStr ", ",
+                            pprAValue b, iStr ")"]
 
   instance Show Value where
     show = show . pprValue
 
-  pprBinding :: Binding -> Iseq
-  pprBinding (ident, vars, e) =
-    iConcat [ iStr ident, 
-              iInterleave (iStr " ") $ map iStr vars,
-              iStr " = ", pprExpr e]
-
-  pprBindings :: Bool -> [Binding] -> Iseq
-  pprBindings recursive bs = iInterleave sep $ map pprBinding bs where
-    sep
-      | not recursive = iNewline `iAppend` iStr "and "
-      | recursive     = iNewline `iAppend` iStr "   and "
-
   pprDefinition :: Definition -> Iseq
-  pprDefinition (D_Let bs) = 
-    iConcat [ iStr "let ", pprBindings False bs]
-  pprDefinition (D_LetRec bs) = 
-    iConcat [ iStr "letrec ", pprBindings False bs]
+  pprDefinition (D_Let bs) =
+    iConcat [ iStr "let ", pprBindings bs]
+  pprDefinition (D_LetRec bs) =
+    iConcat [ iStr "letrec ", pprBindings bs]
 
   instance Show Definition where
     show = show . pprDefinition
@@ -185,7 +179,7 @@ module Languages.EnrichedLambda.PrettyPrint () where
   pprProgram :: Program -> Iseq
   pprProgram ([],   expr) =
     iConcat [pprExpr expr, iStr ";;", iNewline]
-  pprProgram (defs, expr) = 
+  pprProgram (defs, expr) =
     iConcat [ iInterleave sep (map pprDefinition defs), sep,
               pprExpr expr, sep] where
                 sep = iConcat [iStr ";;", iNewline]
