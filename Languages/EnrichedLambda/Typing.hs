@@ -6,9 +6,9 @@ module Languages.EnrichedLambda.Typing where
   import Languages.EnrichedLambda.Instances
   import Languages.EnrichedLambda.Syntax
 
-  import Utils.Env
-  import qualified Utils.LanguageClass as LC
+  import qualified Utils.Classes.Type as TC
   import Utils.State
+  import qualified Utils.TypingEnv as TE
   import Utils.Unification
 
   import Control.Monad.Error
@@ -53,7 +53,7 @@ module Languages.EnrichedLambda.Typing where
       return [T_Var a, T_Var b]
 
   typeOfUnaryPrim :: (MonadState (InterpreterState Type) m, MonadError String m) => UnaryPrim -> m Type
-  typeOfUnaryPrim U_Not   = 
+  typeOfUnaryPrim U_Not   =
     return $ T_Arrow boolType boolType
   typeOfUnaryPrim U_Ref   = do
     a <- newVar
@@ -62,7 +62,7 @@ module Languages.EnrichedLambda.Typing where
   typeOfUnaryPrim U_Deref = do
     a <- newVar
     let v = T_Var a
-    return $ T_Arrow (T_Ref v) v 
+    return $ T_Arrow (T_Ref v) v
   typeOfUnaryPrim U_Head  = do
     a <- newVar
     let v = T_Var a
@@ -111,39 +111,34 @@ module Languages.EnrichedLambda.Typing where
   typeOfBinaryPrim B_Or     =
     return $ T_Arrow boolType $ T_Arrow boolType boolType
 
-  extendEnv :: (MonadState (InterpreterState Type) m, MonadError String m) => Env Type -> [LetBinding] -> m (Env Type)
-  extendEnv env bs = do
-    bs' <- mapM (\(n, e) -> do { a <- newVar; return (n, T_Var a, e) }) bs
-    extendEnv' env bs'
-    where
-      extendEnv' env []             = return env
-      extendEnv' env ((n, v, e):bs) = do
-        t <- typeOfExpression ((map (\(n, v, _) -> (n, v)) bs) ++ env) e
-        addConstraint v t
-        extendEnv' (env `extend` (n, t)) bs
+  extendEnv :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> [Binding] -> m (TE.Env Type)
+  extendEnv env []          = return env
+  extendEnv env ((n, e):bs) = do
+    t <- typeOfExpression env e
+    extendEnv (env `TE.extend` (n, t)) bs
 
-  recursiveExtend :: (MonadState (InterpreterState Type) m, MonadError String m) => Env Type -> [LetBinding] -> m (Env Type)
+  recursiveExtend :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> [Binding] -> m (TE.Env Type)
   recursiveExtend env bs = recursiveExtend' env (map fst bs) bs where
-    recursiveExtend' :: (MonadState (InterpreterState Type) m, MonadError String m) => Env Type -> [String] -> [LetBinding] -> m (Env Type)
+    recursiveExtend' :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> [String] -> [Binding] -> m (TE.Env Type)
     recursiveExtend' env []     []          = return env
     recursiveExtend' env []     ((n, e):bs) = do
       t1 <- typeOfExpression env e
-      t2 <- n `lookup'` env
+      t2 <- n `TE.get` env
       addConstraint t1 t2
       recursiveExtend' env [] bs
     recursiveExtend' env (n:ns) bs          = do
-      a <- newVar 
+      a <- newVar
       let v = T_Var a
-      recursiveExtend' (env `extend` (n, v)) ns bs
+      recursiveExtend' (env `TE.extend` (n, v)) ns bs
 
-  typeOfClause :: (MonadState (InterpreterState Type) m, MonadError String m) => Env Type -> Clause -> m Type
+  typeOfClause :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Clause -> m Type
   typeOfClause env (tp, cs, vs, e) = do
     t1  <- tagToType tp
     tvs <- constrTagToVars tp cs
     t2  <- typeOfExpression ((zip vs tvs) ++ env) e
     return $ T_Arrow t1 t2
 
-  typeOfCase :: (MonadState (InterpreterState Type) m, MonadError String m) => Env Type -> [Clause] -> m Type
+  typeOfCase :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> [Clause] -> m Type
   typeOfCase env cs = do
     a  <- newVar
     let v = T_Var a
@@ -151,13 +146,13 @@ module Languages.EnrichedLambda.Typing where
     addConstraints $  map (\x -> (v, x)) ts
     return v
 
-  typeOfExpression :: (MonadState (InterpreterState Type) m, MonadError String m) => Env Type -> Expr -> m Type
+  typeOfExpression :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Expr -> m Type
   typeOfExpression env (E_UPrim up)     =
     typeOfUnaryPrim up
   typeOfExpression env (E_BPrim bp)     =
     typeOfBinaryPrim bp
   typeOfExpression env (E_Val n)        =
-    n `lookup'` env
+    n `TE.get` env
   typeOfExpression env (E_Num _)        =
     return $ T_Int
   typeOfExpression env (E_Constr 0 0 0) =
@@ -209,27 +204,24 @@ module Languages.EnrichedLambda.Typing where
   typeOfExpression env (E_Function n e) = do
     a <- newVar
     let v = T_Var a
-    t <- typeOfExpression (env `extend` (n, v)) e
+    t <- typeOfExpression (env `TE.extend` (n, v)) e
     return $ T_Arrow v t
   typeOfExpression env E_MatchFailure   = do
     a <- newVar
     return $ T_Var a
 
-  bindingToLetBinding :: Binding -> LetBinding
-  bindingToLetBinding (n, ns, e) = (n, foldr E_Function e ns)
+  typeOfDefinition :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Definition -> m (TE.Env Type)
+  typeOfDefinition env (D_Let bs)    = extendEnv env bs
+  typeOfDefinition env (D_LetRec bs) = recursiveExtend env bs
 
-  typeOfDefinition :: (MonadState (InterpreterState Type) m, MonadError String m) => Env Type -> Definition -> m (Env Type)
-  typeOfDefinition env (D_Let bs)    = extendEnv env $ map bindingToLetBinding bs
-  typeOfDefinition env (D_LetRec bs) = recursiveExtend env $ map bindingToLetBinding bs
-
-  typeOfProgram :: (MonadState (InterpreterState Type) m, MonadError String m) => Env Type -> Program -> m Type
+  typeOfProgram :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Program -> m Type
   typeOfProgram env ([], e)     = do
     t <- typeOfExpression env e
     s <- unify
-    return $ t `LC.applySubst` s
+    return $ t `TC.applySubst` s
   typeOfProgram env ((d:ds), e) = do
     env' <- typeOfDefinition env d
     typeOfProgram env' (ds, e)
 
-  typeOf :: Env Type -> Program -> Either String Type
+  typeOf :: TE.Env Type -> Program -> Either String Type
   typeOf env p = fst $ runState (runErrorT (typeOfProgram env p)) emptyState
