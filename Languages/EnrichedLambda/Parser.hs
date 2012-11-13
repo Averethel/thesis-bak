@@ -76,6 +76,15 @@ module Languages.EnrichedLambda.Parser where
   natural :: Parser Integer
   natural = PTok.natural lang
 
+  typeTag :: Parser TypeTag
+  typeTag = do { i <- many1 digit; return $ read i }
+
+  constrTag :: Parser ConstrTag
+  constrTag = do { i <- many1 digit; return $ read i }
+
+  arity :: Parser Arity
+  arity = do { i <- many1 digit; return $ read i }
+
   unaryPrim :: Parser UnaryPrim
   unaryPrim = choice [uNot, uFst, uSnd, uHead, uTail, uEmpty, uRef, uDeref] where
     uNot   = const U_Not <$> reserved "not"
@@ -128,23 +137,23 @@ module Languages.EnrichedLambda.Parser where
     return $ b:bs
 
   clause :: Parser Clause
-  clause = choice $ map try [cTrue, cFalse, cUnit, cNil, cCons, cPair] where --, cCl] where
+  clause = choice $ map try [cTrue, cFalse, cUnit, cNil, cCons, cPair, cCl] where
     cTrue  = (\e ->       (boolTag, trueTag,  [],    e)) <$> (reserved "true" *> reservedOp "->" *> expression)
     cFalse = (\e ->       (boolTag, falseTag, [],    e)) <$> (reserved "false" *> reservedOp "->" *> expression)
     cUnit  = (\e ->       (unitTag, unitTagC, [],    e)) <$> (reservedOp "()" *> reservedOp "->" *> expression)
     cNil   = (\e ->       (listTag, nilTag,   [],    e)) <$> (reservedOp "[]" *> reservedOp "->" *> expression)
     cCons  = (\(a,b,e) -> (listTag, consTag,  [a,b], e)) <$> do { i <- identifier; reservedOp "::"; i' <- identifier; reservedOp "->"; e <- expression; return  (i, i', e)}
     cPair  = (\(a,b,e) -> (pairTag, pairTagC, [a,b], e)) <$> do { reservedOp "("; i <- identifier; reservedOp ","; i' <- identifier; reservedOp ")"; reservedOp "->"; e <- expression; return (i, i', e)}
-    --cCl    = do
-    --  reservedOp "<"
-    --  tt <- natural
-    --  reservedOp ","
-    --  ct <- natural
-    --  reservedOp ">"
-    --  ns <- many identifier
-    --  reservedOp "->"
-    --  e <- expression
-    --  return (tt, ct, ns, e)
+    cCl    = do
+      reservedOp "<"
+      tt <- typeTag
+      reservedOp ","
+      ct <- constrTag
+      reservedOp ">"
+      ns <- many identifier
+      reservedOp "->"
+      e <- expression
+      return (tt, ct, ns, e)
 
   clauses :: Parser [Clause]
   clauses = do
@@ -160,14 +169,14 @@ module Languages.EnrichedLambda.Parser where
     eNum       = E_Num <$> natural
     eList      = foldr (\a -> \b -> E_Apply (E_Apply (E_Constr listTag consTag 2) a) b) (E_Constr listTag nilTag 0) <$> (brackets . commaSep $ expression)
     ePair      = parens $ do { a <- expression; reservedOp ","; e2 <- expression; return $ E_Apply (E_Apply (E_Constr pairTag pairTagC 2) a) e2 }
-    eConstr    = choice $ map try [cTrue, cFalse, cUnit, cNil, cCons, cPair] --, cPack]
+    eConstr    = choice $ map try [cTrue, cFalse, cUnit, cNil, cCons, cPair, cPack]
     cTrue      = const (E_Constr boolTag trueTag 0) <$> reserved "true"
     cFalse     = const (E_Constr boolTag falseTag 0) <$> reserved "false"
     cUnit      = const (E_Constr unitTag unitTagC 0) <$> reservedOp "()"
     cNil       = const (E_Constr listTag nilTag 0) <$> reservedOp "[]"
     cCons      = const (E_Constr listTag consTag 2) <$> (angles $ reservedOp "::")
     cPair      = const (E_Constr pairTag pairTagC 2) <$> (angles $ reservedOp ",")
-    -- cPack =
+    cPack      = (\(t, c, a) -> E_Constr t c a) <$> do { reserved "Pack"; reservedOp "{"; t <- typeTag; reservedOp ","; c <- constrTag; reservedOp ","; a <- arity; reservedOp "}"; return (t, c, a)}
     eCase      = E_Case <$> (reserved "case" *> expression) <*> (reserved "of" *> clauses)
     eLet       = E_Let <$> (reserved "let" *> letBindings) <*> (reserved "in" *> expression)
     eLetRec    = E_LetRec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)
