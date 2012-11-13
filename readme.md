@@ -17,6 +17,7 @@ Changelog
     * [Languages]
         * Values as memory cells in Enriched Lambda Calculus
         * Evaluator for Enriched Lambda Calculus
+        * Returned to simple definition form im Enriched Lambda Calculus
     * [Utils]
         * Cleaning and restructuring typeclasses
         * Distinguishing evaluation environment from typing environment
