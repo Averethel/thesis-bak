@@ -206,10 +206,19 @@ module Languages.EnrichedLambda.Eval where
   evalDefinition mem env (D_LetRec bs) =
     return (env `extendRec` bs, mem)
 
-  eval :: Memory Value -> Env Value Expr -> Program -> Either String (Value, Memory Value)
-  eval mem env ([],     e) =
-    evalExpression mem env e
-  eval mem env ((d:ds), e) = do
+  evalInstruction :: MonadError String m => Memory Value -> Env Value Expr -> Instruction -> m (Maybe Value, Env Value Expr, Memory Value)
+  evalInstruction mem env (IDF df) = do
+    (env', mem') <- evalDefinition mem env df
+    return (Nothing, env', mem')
+  evalInstruction mem env (IEX ex) = do
+    (v, mem') <- evalExpression mem env ex
+    return (Just v, (env `extend` ("it", v)), mem')
+
+  evalProgram :: MonadError String m => Memory Value -> Env Value Expr -> Program -> m (Value, Env Value Expr, Memory Value)
+  evalProgram mem env ([],     e) = do
+    (v, mem') <- evalExpression mem env e
+    return (v, (env `extend` ("it", v)), mem')
+  evalProgram mem env ((d:ds), e) = do
     (env', mem') <- evalDefinition mem env d
-    eval mem' env' (ds, e)
+    evalProgram mem' env' (ds, e)
 
