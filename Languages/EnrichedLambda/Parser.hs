@@ -4,7 +4,6 @@ module Languages.EnrichedLambda.Parser where
   import Utils.RunParser
 
   import Control.Applicative hiding ((<|>), many)
-  import Data.Char (digitToInt)
   import Data.Functor
   import Data.Functor.Identity
 
