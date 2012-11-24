@@ -8,7 +8,6 @@ Implementing MiniML compiler to ZINC bytecode
 
 Currently working on
 ====================
-* Interpreter for enriched lambda calculus (feature/enriched-lambda-interpreter)
 * Defunctionalization of MiniML interpreter & ectracting common interface parts to a module (feature/miniml-interpreter-refactor)
 
 Changelog
