@@ -31,7 +31,7 @@ module Languages.EnrichedLambda.Parser where
     PTok.reservedNames   = [ "true", "false",
                              "not", "ref",
                              "and", "or",
-                             "if", "then",
+                             "if", "then", "case",
                              "else", "function",
                              "let", "letrec", "in",
                              "fst", "snd", "head",
