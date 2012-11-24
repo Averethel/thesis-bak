@@ -32,9 +32,9 @@ module Utils.Classes.Language where
                                   e  -> n p tp i v,
                                   i  -> n p tp e v,
                                   v  -> n p tp e i where
-    typeOfExpression     :: TE.Env tp -> e -> Either String tp
-    typeOfInstruction    :: TE.Env tp -> i -> Either String (Maybe tp, TE.Env tp)
-    typeOfProgram        :: TE.Env tp -> p -> Either String (tp, TE.Env tp)
+    typeOfExpression     :: Integer -> TE.Env tp -> e -> Either String tp
+    typeOfInstruction    :: Integer -> TE.Env tp -> i -> Either String (Maybe tp, TE.Env tp, Integer)
+    typeOfProgram        :: Integer -> TE.Env tp -> p -> Either String (tp, TE.Env tp, Integer)
     evalInstruction      :: Memory v -> EE.Env v e -> i -> Either String (Maybe v, EE.Env v e, Memory v)
     evalProgram          :: Memory v -> EE.Env v e -> p -> Either String (v, EE.Env v e, Memory v)
     parseExpression      :: n -> String -> Either ParseError e
