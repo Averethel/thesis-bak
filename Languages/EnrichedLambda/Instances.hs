@@ -6,19 +6,21 @@
   #-}
 
 module Languages.EnrichedLambda.Instances where
-  import qualified Utils.Classes.Clojure     as CC
-  import qualified Utils.Classes.Expression  as EC
-  import qualified Utils.Classes.Instruction as IC
-  import qualified Utils.Classes.Language    as LC
-  import qualified Utils.Classes.Program     as PC
-  import qualified Utils.Classes.Type        as TC
-  import qualified Utils.Classes.Value       as VC
+  import qualified Utils.Classes.Clojure      as CC
+  import qualified Utils.Classes.Expression   as EC
+  import qualified Utils.Classes.Instruction  as IC
+  import qualified Utils.Classes.LanguageName as LN
+  import qualified Utils.Classes.Program      as PC
+  import qualified Utils.Classes.Type         as TC
+  import qualified Utils.Classes.Value        as VC
   import Utils.EvalEnv
 
   import Languages.EnrichedLambda.PrettyPrint
   import Languages.EnrichedLambda.Syntax
 
   import Data.Maybe
+
+  instance LN.LanguageName LambdaName
 
   instance PC.Program Program
 
@@ -41,12 +43,13 @@ module Languages.EnrichedLambda.Instances where
     canUnify (T_Ref _)          (T_Ref _)          = True
     canUnify (T_Defined n1 ts1) (T_Defined n2 ts2) = n1 == n2 &&
                                                     length ts1 == length ts2
-    canUnify _                  _                  = False
+    canUnify t1                 t2                 = t1 == t2
 
     newConstraints (T_Arrow t1 t2)    (T_Arrow t3 t4)    = [(t1, t3), (t2, t4)]
     newConstraints (T_Ref t1)         (T_Ref t2)         = [(t1, t2)]
     newConstraints (T_Defined n1 ts1) (T_Defined n2 ts2)
       | n1 == n2 && length ts1 == length ts2             = zip ts1 ts2
+    newConstraints _                  _                  = []
 
     applySubst t []     = t
     applySubst t (s:ss) = TC.applySubst (applySingleSubst t s) ss where
