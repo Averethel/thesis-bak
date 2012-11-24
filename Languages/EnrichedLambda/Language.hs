@@ -4,7 +4,7 @@
   TypeSynonymInstances
   #-}
 
-module EnrichedLambda.Language where
+module Languages.EnrichedLambda.Language where
   import Languages.EnrichedLambda.Instances
   import Languages.EnrichedLambda.Parser
   import Languages.EnrichedLambda.Syntax
