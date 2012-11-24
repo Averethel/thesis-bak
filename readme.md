@@ -13,6 +13,22 @@ Currently working on
 
 Changelog
 =========
+* 23 XI 2012
+    * [Languages]
+        * Finished work on Enriched Lambda Calculus
+    * [Bug Fixes]
+        * Fixed bug in Enriched Lambda Calculus function parser
+        * Correct typing in case clauses in Enriched Lambda Calculus
+        * Correct typing of constructors in Enriched Lambda Calculus
+        * Unification in proper places to have polymorphism
+    * [Utils]
+        * Added functional dependencies and new language name parameter to Language
+        * Added free variables counter parameter to typing functions in language class
+        * Very basic version of generic interpreter
+* 14 XI 2012
+    * [Languages]
+        * Parser for Enriched Lambda Calculus
+        * Laguage class instance declaration for Enriched Lambda Calculus
 * 13 XI 2012
     * [Languages]
         * Values as memory cells in Enriched Lambda Calculus
