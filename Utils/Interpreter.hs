@@ -83,7 +83,7 @@ module Utils.Interpreter (interpreter) where
                 evalLoop langName typingEnv evalEnv memory
               Right (v, ee, mem) -> do
                 case (v, tp) of
-                  (Just val, Just typ) -> outputStrLn $ "it = " ++ show val ++ " : " ++ show tp
+                  (Just val, Just typ) -> outputStrLn $ "it = " ++ show val ++ " : " ++ show typ
                   (Nothing,  Nothing)  -> outputStrLn "Defined."
                 evalLoop langName te ee mem
 
