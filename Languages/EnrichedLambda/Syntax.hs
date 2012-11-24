@@ -2,6 +2,8 @@
   import Utils.EvalEnv
   import Utils.Memory
 
+  data LambdaName = EnrichedLambda
+
   type Name       = String
   type ConstrTag  = Int
   type TypeTag    = Int
