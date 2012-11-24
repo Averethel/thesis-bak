@@ -49,7 +49,8 @@ module Languages.EnrichedLambda.Instances where
     newConstraints (T_Ref t1)         (T_Ref t2)         = [(t1, t2)]
     newConstraints (T_Defined n1 ts1) (T_Defined n2 ts2)
       | n1 == n2 && length ts1 == length ts2             = zip ts1 ts2
-    newConstraints _                  _                  = []
+    newConstraints t1                 t2
+      | t1 == t2                                         = []
 
     applySubst t []     = t
     applySubst t (s:ss) = TC.applySubst (applySingleSubst t s) ss where
