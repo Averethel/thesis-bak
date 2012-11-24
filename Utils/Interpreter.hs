@@ -1,8 +1,4 @@
-{-# LANGUAGE
-  TypeFamilies
-  #-}
-
-module Utils.Interpreter where
+module Utils.Interpreter (interpreter) where
   import Utils.Classes.Clojure
   import Utils.Classes.Expression
   import Utils.Classes.Language
@@ -93,7 +89,7 @@ module Utils.Interpreter where
 
   evalLoop :: (MonadException m, Language n p tp e i v) => n -> TE.Env tp -> EE.Env v e -> Memory v -> InputT m ()
   evalLoop langName typingEnv evalEnv memory = do
-    c <- getInputLine $ show langName ++ " :>"
+    c <- getInputLine $ show langName ++ " :> "
     case c of
       Nothing               -> evalLoop langName typingEnv evalEnv memory
 
@@ -108,3 +104,6 @@ module Utils.Interpreter where
       Just (':':'l':path)   -> secureTypeAndEvalProgram path langName typingEnv evalEnv memory
 
       Just instrS           -> typeAndEvalInstruction instrS langName typingEnv evalEnv memory
+
+  interpreter :: Language n p tp e i v => n -> Integer -> IO ()
+  interpreter langName memSize = runInputT defaultSettings $ clear langName memSize
