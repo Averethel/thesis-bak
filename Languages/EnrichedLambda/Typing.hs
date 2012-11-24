@@ -89,7 +89,8 @@ module Languages.EnrichedLambda.Typing where
   extendEnv env []          = return env
   extendEnv env ((n, e):bs) = do
     t <- typeOfExpr env e
-    extendEnv (env `TE.extend` (n, t)) bs
+    s <- unify
+    extendEnv (env `TE.extend` (n, t `TC.applySubst` s)) bs
 
   recursiveExtend :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> [Binding] -> m (TE.Env Type)
   recursiveExtend env bs = recursiveExtend' env (map fst bs) bs where
@@ -99,7 +100,8 @@ module Languages.EnrichedLambda.Typing where
       t1 <- typeOfExpr env e
       t2 <- n `TE.get` env
       addConstraint t1 t2
-      recursiveExtend' env [] bs
+      s  <- unify
+      recursiveExtend' (env `TE.extend` (n, t1 `TC.applySubst` s)) [] bs
     recursiveExtend' env (n:ns) bs          = do
       a <- newVar
       let v = T_Var a
@@ -184,7 +186,7 @@ module Languages.EnrichedLambda.Typing where
   typeOfExpr env (E_Apply e1 e2)  = do
     t1 <- typeOfExpr env e1
     t2 <- typeOfExpr env e2
-    a <- newVar
+    a  <- newVar
     let v = T_Var a
     addConstraint t1 $ T_Arrow t2 v
     return v
@@ -200,8 +202,8 @@ module Languages.EnrichedLambda.Typing where
     env' <- recursiveExtend env bs
     typeOfExpr env' e
   typeOfExpr env (E_Case e cs)    = do
-    t               <- typeOfExpr env e
-    (T_Arrow t1 t2) <- typeOfCase env cs
+    t             <- typeOfExpr env e
+    T_Arrow t1 t2 <- typeOfCase env cs
     addConstraint t t1
     return t2
   typeOfExpr env (E_Function n e) = do
@@ -217,29 +219,34 @@ module Languages.EnrichedLambda.Typing where
   typeOfDefinition env (D_Let bs)    = extendEnv env bs
   typeOfDefinition env (D_LetRec bs) = recursiveExtend env bs
 
-  typeOfInstr :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Instruction -> m (Maybe Type, TE.Env Type)
+  typeOfInstr :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Instruction -> m (Maybe Type, TE.Env Type, Integer)
   typeOfInstr env (IDF df) = do
     env' <- typeOfDefinition env df
-    return (Nothing, env')
+    st   <- get
+    return (Nothing, env', variableCounter st + 1)
   typeOfInstr env (IEX ex) = do
-    t <- typeOfExpr env ex
-    s <- unify
-    return $ (Just $ t `TC.applySubst` s, map (\(n, t) -> (n, t `TC.applySubst` s)) env)
+    t  <- typeOfExpr env ex
+    s  <- unify
+    let tp = t `TC.applySubst` s
+    st <- get
+    return $ (Just tp, env `TE.extend` ("it", tp), variableCounter st + 1)
 
-  typeOfProg :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Program -> m (Type, TE.Env Type)
+  typeOfProg :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Program -> m (Type, TE.Env Type, Integer)
   typeOfProg env ([], e)     = do
-    t <- typeOfExpr env e
-    s <- unify
-    return $ (t `TC.applySubst` s, map (\(n, t) -> (n, t `TC.applySubst` s)) env)
+    t  <- typeOfExpr env e
+    s  <- unify
+    let tp = t `TC.applySubst` s
+    st <- get
+    return $ (tp, env `TE.extend` ("it", tp), variableCounter st + 1)
   typeOfProg env ((d:ds), e) = do
     env' <- typeOfDefinition env d
     typeOfProg env' (ds, e)
 
-  typeOfExpression :: TE.Env Type -> Expr -> Either String Type
-  typeOfExpression env e = fst $ runState (runErrorT (do { t <- typeOfExpr env e; s <- unify; return $ t `TC.applySubst` s})) emptyState
+  typeOfExpression :: Integer -> TE.Env Type -> Expr -> Either String Type
+  typeOfExpression n env e = fst $ runState (runErrorT (do { t <- typeOfExpr env e; s <- unify; return $ t `TC.applySubst` s})) emptyState {variableCounter = n}
 
-  typeOfInstruction :: TE.Env Type -> Instruction -> Either String (Maybe Type, TE.Env Type)
-  typeOfInstruction env instr = fst $ runState (runErrorT (typeOfInstr env instr)) emptyState
+  typeOfInstruction :: Integer -> TE.Env Type -> Instruction -> Either String (Maybe Type, TE.Env Type, Integer)
+  typeOfInstruction n env instr = fst $ runState (runErrorT (typeOfInstr env instr)) emptyState {variableCounter = n}
 
-  typeOfProgram :: TE.Env Type -> Program -> Either String (Type, TE.Env Type)
-  typeOfProgram env p = fst $ runState (runErrorT (typeOfProg env p)) emptyState
+  typeOfProgram :: Integer -> TE.Env Type -> Program -> Either String (Type, TE.Env Type, Integer)
+  typeOfProgram n env p = fst $ runState (runErrorT (typeOfProg env p)) emptyState {variableCounter = n}
