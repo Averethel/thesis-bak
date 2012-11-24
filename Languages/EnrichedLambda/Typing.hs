@@ -145,25 +145,38 @@ module Languages.EnrichedLambda.Typing where
     n `TE.get` env
   typeOfExpr env (E_Num _)        =
     return $ T_Int
-  typeOfExpr env (E_Constr 0 0 0) =
-    return $ boolType
-  typeOfExpr env (E_Constr 0 1 0) =
-    return $ boolType
-  typeOfExpr env (E_Constr 1 0 0) =
-    return $ unitType
-  typeOfExpr env (E_Constr 2 0 0) = do
-    v <- newVar
-    return $ listType $ T_Var v
-  typeOfExpr env (E_Constr 2 0 2) = do
-    a <- newVar
-    let v = T_Var a
-    return $ T_Arrow v $ T_Arrow (listType v) $ listType v
-  typeOfExpr env (E_Constr 3 0 2) = do
-    a <- newVar
-    b <- newVar
-    let v1 = T_Var a
-    let v2 = T_Var b
-    return $ T_Arrow v1 $ T_Arrow v2 $ pairType v1 v2
+  typeOfExpr env (E_Constr t c a)
+    | t == boolTag  &&
+      c == falseTag &&
+      a == 0                      =
+        return $ boolType
+    | t == boolTag  &&
+      c == trueTag  &&
+      a == 0                      =
+        return $ boolType
+    | t == unitTag  &&
+      c == unitTagC &&
+      a == 0                      =
+        return $ unitType
+    | t == listTag &&
+      c == nilTag  &&
+      a == 0                      = do
+        v <- newVar
+        return $ listType $ T_Var v
+    | t == listTag &&
+      c == consTag &&
+      a == 2                      = do
+        a <- newVar
+        let v = T_Var a
+        return $ T_Arrow v $ T_Arrow (listType v) $ listType v
+    | t == pairTag  &&
+      c == pairTagC &&
+      a == 2                      = do
+        a <- newVar
+        b <- newVar
+        let v1 = T_Var a
+        let v2 = T_Var b
+        return $ T_Arrow v1 $ T_Arrow v2 $ pairType v1 v2
   typeOfExpr env (E_Seq e1 e2)    = do
     t1 <- typeOfExpr env e1
     addConstraint t1 unitType
