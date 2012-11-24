@@ -108,7 +108,7 @@ module Languages.EnrichedLambda.Parser where
     bOr    = const B_Or <$> reserved "or"
 
   eFunction :: Parser Expr
-  eFunction  = E_Function <$> (reserved "function" *> identifier <* reservedOp "=") *> expression
+  eFunction  = E_Function <$> (reserved "function" *> identifier <* reservedOp "=") <*> expression
 
   letBinding :: Parser Binding
   letBinding = do
