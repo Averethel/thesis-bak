@@ -12,9 +12,9 @@ module Utils.Classes.Language where
   import Utils.Classes.Program
   import Utils.Classes.Type
   import Utils.Classes.Value
-  import {-# SOURCE #-} qualified Utils.EvalEnv as EE
-  import {-# SOURCE #-} Utils.Memory
-  import {-# SOURCE #-} qualified Utils.TypingEnv as TE
+  import qualified Utils.EvalEnv as EE
+  import Utils.Memory
+  import qualified Utils.TypingEnv as TE
 
   import Control.Monad.Error
   import Text.Parsec.Error
