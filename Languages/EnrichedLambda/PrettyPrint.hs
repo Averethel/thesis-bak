@@ -9,6 +9,9 @@ module Languages.EnrichedLambda.PrettyPrint () where
 
   import Languages.EnrichedLambda.Syntax
 
+  instance Show LambdaName where
+    show EnrichedLambda = "Enriched-λ-Calculus"
+
   isInfix :: BinaryPrim -> Bool
   isInfix _ = True
 
