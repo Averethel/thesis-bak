@@ -13,7 +13,7 @@ module EnrichedLambda.Language where
 
   import qualified Utils.Classes.Language as LC
 
-  instance LC.Language Program Type Expr Instruction Value where
+  instance LC.Language LambdaName Program Type Expr Instruction Value where
     typeOfExpression  = typeOfExpression
     typeOfProgram     = typeOfProgram
     typeOfInstruction = typeOfInstruction
@@ -21,6 +21,6 @@ module EnrichedLambda.Language where
     evalInstruction = evalInstruction
     evalProgram     = evalProgram
 
-    parseExpression      = parseExpression
-    parseInstruction     = parseInstruction
-    parseProgramFromFile = parseProgramFromFile
+    parseExpression      _ = parseExpression
+    parseInstruction     _ = parseInstruction
+    parseProgramFromFile _ = parseProgramFromFile
