@@ -42,4 +42,4 @@ module Utils.Unification where
                 True  -> do
                   addConstraints $ newConstraints a' b'
                   unify' s
-                False -> throwError $ cannotUnify (a, b)
+                False -> throwError $ cannotUnify (a', b')

@@ -2,10 +2,10 @@
   FlexibleContexts
   #-}
 
-module Utils.EvalEnv (Env, emptyEnv, get, extend, extendRec) where
+module Utils.EvalEnv (Env, emptyEnv, get, extend, extendRec)
+where
   import Utils.Classes.Clojure
-  import Utils.Classes.Expression
-  import Utils.Classes.Value
+  import Utils.Classes.Language
   import Utils.Errors
 
   import Control.Monad.Error
@@ -18,10 +18,10 @@ module Utils.EvalEnv (Env, emptyEnv, get, extend, extendRec) where
     | Recursive [(String, e)] (Env v e)
     deriving Eq
 
-  emptyEnv :: Env v e
+  emptyEnv :: Language n p tp e i v => Env v e
   emptyEnv = Init
 
-  get :: (Value v, Expression e, Clojure v e) => MonadError String m => String -> Env v e -> m v
+  get :: (MonadError String m, Language n p tp e i v) => String -> Env v e -> m v
   get val Init                     = throwError $ unboundVariable val
   get val (Simple n v e)
     | val == n                     = return v
@@ -30,8 +30,8 @@ module Utils.EvalEnv (Env, emptyEnv, get, extend, extendRec) where
     | val `elem` (map fst ex)      = return $ mkClo (fromJust $ val `lookup` ex) e
     | otherwise                    = get val e'
 
-  extend :: (Value v, Expression e, Clojure v e) => Env v e -> (String, v) -> Env v e
+  extend :: Language n p tp e i v => Env v e -> (String, v) -> Env v e
   extend env (n, v) = Simple n v env
 
-  extendRec :: (Value v, Expression e, Clojure v e) => Env v e -> [(String, e)] -> Env v e
+  extendRec :: Language n p tp e i v => Env v e -> [(String, e)] -> Env v e
   extendRec env e = Recursive e env

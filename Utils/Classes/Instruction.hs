@@ -1,2 +1,2 @@
 module Utils.Classes.Instruction where
-  class Instruction i where
+  class Show i => Instruction i where

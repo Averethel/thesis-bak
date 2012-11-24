@@ -1,3 +1,3 @@
 module Utils.Classes.Value where
-  class Value v where
+  class Show v => Value v where
     nullValue :: v

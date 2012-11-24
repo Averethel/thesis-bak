@@ -1,2 +1,2 @@
 module Utils.Classes.Expression where
-  class Expression e where
+  class Show e => Expression e where
