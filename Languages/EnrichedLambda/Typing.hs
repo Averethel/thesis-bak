@@ -26,32 +26,6 @@ module Languages.EnrichedLambda.Typing where
   pairType :: Type -> Type -> Type
   pairType a b = T_Defined 3 [a, b]
 
-  tagToType :: MonadState (InterpreterState Type) m => TypeTag -> m Type
-  tagToType n
-    | n == boolTag = return boolType
-    | n == unitTag = return unitType
-    | n == listTag = do
-      a <- newVar
-      return $ listType $ T_Var a
-    | n == pairTag = do
-      a <- newVar
-      b <- newVar
-      return $ pairType (T_Var a) $ T_Var b
-
-  constrTagToVars :: MonadState (InterpreterState Type) m => TypeTag -> ConstrTag -> m [Type]
-  constrTagToVars n c
-    | n == boolTag                 = return []
-    | n == unitTag                 = return []
-    | n == listTag && c == nilTag  = return []
-    | n == listTag && c == consTag = do
-      a <- newVar
-      b <- newVar
-      return [T_Var a, T_Var b]
-    | n == pairTag                 = do
-      a <- newVar
-      b <- newVar
-      return [T_Var a, T_Var b]
-
   typeOfUnaryPrim :: (MonadState (InterpreterState Type) m, MonadError String m) => UnaryPrim -> m Type
   typeOfUnaryPrim U_Not   =
     return $ T_Arrow boolType boolType
@@ -131,20 +105,36 @@ module Languages.EnrichedLambda.Typing where
       let v = T_Var a
       recursiveExtend' (env `TE.extend` (n, v)) ns bs
 
+  tagToTypeAndVars :: (MonadState (InterpreterState Type) m, MonadError String m) => TypeTag -> ConstrTag -> m (Type, [Type])
+  tagToTypeAndVars t c
+    | t == boolTag && c == trueTag  = return (boolType, [])
+    | t == boolTag && c == falseTag = return (boolType, [])
+    | t == unitTag && c == unitTagC = return (unitType, [])
+    | t == listTag && c == nilTag   = do
+      a <- newVar
+      return (listType $ T_Var a, [])
+    | t == listTag && c == consTag  = do
+      a <- newVar
+      let t = T_Var a
+      return (listType t, [t, listType t])
+    | t == pairTag && c == pairTagC = do
+      a <- newVar
+      let t1 = T_Var a
+      b <- newVar
+      let t2 = T_Var b
+      return (pairType t1 t2, [t1, t2])
+
   typeOfClause :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Clause -> m Type
   typeOfClause env (tp, cs, vs, e) = do
-    t1  <- tagToType tp
-    tvs <- constrTagToVars tp cs
-    t2  <- typeOfExpr ((zip vs tvs) ++ env) e
+    (t1, tvs) <- tagToTypeAndVars tp cs
+    t2        <- typeOfExpr ((zip vs tvs) ++ env) e
     return $ T_Arrow t1 t2
 
   typeOfCase :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> [Clause] -> m Type
   typeOfCase env cs = do
-    a  <- newVar
-    let v = T_Var a
-    ts <- mapM (typeOfClause env) cs
-    addConstraints $  map (\x -> (v, x)) ts
-    return v
+    t:ts <- mapM (typeOfClause env) cs
+    addConstraints $  map (\x -> (t, x)) ts
+    return t
 
   typeOfExpr :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Expr -> m Type
   typeOfExpr env (E_UPrim up)     =
