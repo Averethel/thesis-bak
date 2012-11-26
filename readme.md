@@ -19,6 +19,8 @@ Changelog
         * Rewrote evaluation for MiniML
     * [Utils]
         * Slightly modified Language class (program can have not Type & no Value)
+        * Interpreter can now show defined bindings
+        * Added help text to the interpreter
 * 23 XI 2012
     * [Languages]
         * Finished work on Enriched Lambda Calculus
