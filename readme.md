@@ -12,6 +12,12 @@ Currently working on
 
 Changelog
 =========
+* 26 XI 2012
+    * [Languages]
+        * Correct definition of Values for MiniML
+        * Rewrote typing for MiniML
+    * [Utils]
+        * Slightly modified Language class
 * 23 XI 2012
     * [Languages]
         * Finished work on Enriched Lambda Calculus
