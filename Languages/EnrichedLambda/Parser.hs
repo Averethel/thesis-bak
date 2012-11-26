@@ -203,7 +203,7 @@ module Languages.EnrichedLambda.Parser where
                 [Prefix (reserved "head" *> pure (E_Apply (E_UPrim U_Head)))],
                 [Prefix (reserved "tail" *> pure (E_Apply (E_UPrim U_Tail)))],
                 [Prefix (reserved "empty?" *> pure (E_Apply (E_UPrim U_Empty)))],
-                [Infix (reservedOp "@" *> pure E_Apply) AssocLeft],
+                [Infix (pure E_Apply) AssocLeft],
                 [Infix (reservedOp "::" *> pure (\a b -> E_Apply (E_Apply (E_Constr listTag consTag 2) a) b)) AssocRight],
                 [Infix (reservedOp "&&" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_And) a) b)) AssocRight],
                 [Infix (reservedOp "||" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Or) a) b)) AssocRight],
