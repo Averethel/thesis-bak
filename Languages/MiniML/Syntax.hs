@@ -79,6 +79,7 @@ module Languages.MiniML.Syntax where
     | V_Clo (Env Value Expr) [FunBinding]
     | V_Null
     | V_Pointer Integer
+    | V_Error String
     deriving Eq
 
   data Definition =

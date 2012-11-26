@@ -31,7 +31,8 @@ module Languages.MiniML.PrettyPrint where
   isAtomicValue (V_List (_:_)) = False
   isAtomicValue (V_Tuple _)    = True
   isAtomicValue (V_Clo _ _)    = True
-  isAtomicValue (V_Pointer _)     = True
+  isAtomicValue (V_Pointer _)  = True
+  isAtomicValue (V_Error _)    = True
 
   isAtomicKind :: Kind -> Bool
   isAtomicKind K_Type = True
@@ -233,6 +234,8 @@ module Languages.MiniML.PrettyPrint where
   pprValue V_Null           = iNil
   pprValue (V_Pointer n)    = (iStr "Mem@") `iAppend`
                               (iStr $ show n)
+  pprValue (V_Error s)      = iStr "Exception: " `iAppend`
+                              iStr s
 
   instance Show Value where
     show = show . pprValue
