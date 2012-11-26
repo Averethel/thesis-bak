@@ -231,13 +231,13 @@ module Languages.EnrichedLambda.Typing where
     st <- get
     return $ (Just tp, env `TE.extend` ("it", tp), variableCounter st + 1)
 
-  typeOfProg :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Program -> m (Type, TE.Env Type, Integer)
+  typeOfProg :: (MonadState (InterpreterState Type) m, MonadError String m) => TE.Env Type -> Program -> m (Maybe Type, TE.Env Type, Integer)
   typeOfProg env ([], e)     = do
     t  <- typeOfExpr env e
     s  <- unify
     let tp = t `TC.applySubst` s
     st <- get
-    return $ (tp, env `TE.extend` ("it", tp), variableCounter st + 1)
+    return $ (Just tp, env `TE.extend` ("it", tp), variableCounter st + 1)
   typeOfProg env ((d:ds), e) = do
     env' <- typeOfDefinition env d
     typeOfProg env' (ds, e)
@@ -248,5 +248,5 @@ module Languages.EnrichedLambda.Typing where
   typeOfInstruction :: Integer -> TE.Env Type -> Instruction -> Either String (Maybe Type, TE.Env Type, Integer)
   typeOfInstruction n env instr = fst $ runState (runErrorT (typeOfInstr env instr)) emptyState {variableCounter = n}
 
-  typeOfProgram :: Integer -> TE.Env Type -> Program -> Either String (Type, TE.Env Type, Integer)
+  typeOfProgram :: Integer -> TE.Env Type -> Program -> Either String (Maybe Type, TE.Env Type, Integer)
   typeOfProgram n env p = fst $ runState (runErrorT (typeOfProg env p)) emptyState {variableCounter = n}
