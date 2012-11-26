@@ -18,7 +18,19 @@ module Utils.Interpreter (interpreter) where
 
   printHelp :: (MonadException m, Language n p tp e i v) => n -> Integer -> TE.Env tp -> EE.Env v e -> Memory v -> InputT m ()
   printHelp langName varCounter typingEnv evalEnv memory = do
-    outputStrLn "HERE WOULD BE HELP"
+    outputStrLn "Available commands"
+    outputStrLn "\t:c, :clear              - reset interpreter state"
+    outputStrLn "\t:h, :help, ?            - prints this help"
+    outputStrLn $ "\t:l <path>, :load <path> - loads " ++ show langName ++ " program"
+    outputStrLn "\t:t <expr>, :type <expr> - checks type of expression"
+    outputStrLn "\t:s, :show               - shows current bindings"
+    outputStrLn "\t:q, :quit, EOF          - exit"
+    evalLoop langName varCounter typingEnv evalEnv memory
+
+  unknownCommand :: (MonadException m, Language n p tp e i v) => String -> n -> Integer -> TE.Env tp -> EE.Env v e -> Memory v -> InputT m ()
+  unknownCommand c langName varCounter typingEnv evalEnv memory = do
+    outputStrLn $ "Unknown command: " ++ show c
+    outputStrLn "Type \"?\" for help"
     evalLoop langName varCounter typingEnv evalEnv memory
 
   checkType :: (MonadException m, Language n p tp e i v) => String -> n -> Integer -> TE.Env tp -> EE.Env v e -> Memory v -> InputT m ()
@@ -49,7 +61,9 @@ module Utils.Interpreter (interpreter) where
                 outputStrLn $ evalErrorFile err path
                 evalLoop langName varCounter typingEnv evalEnv memory
               Right (v, ee, mem) -> do
-                outputStrLn $ show v ++ " : " ++ show tp
+                case (v, tp) of
+                  (Just vl, Just t) -> outputStrLn $ show vl ++ " : " ++ show t
+                  _                 -> outputStrLn "Loaded."
                 evalLoop langName vc te ee mem
 
   handleException :: (MonadException m, Language n p tp e i v) => n -> Integer -> TE.Env tp -> EE.Env v e -> Memory v -> IOException -> InputT m ()
@@ -85,23 +99,48 @@ module Utils.Interpreter (interpreter) where
                   (Nothing,  Nothing)  -> outputStrLn "Defined."
                 evalLoop langName vc te ee mem
 
+  showBindings :: (MonadException m, Language n p tp e i v) => n -> Integer -> TE.Env tp -> EE.Env v e -> Memory v -> InputT m ()
+  showBindings langName varCounter typingEnv evalEnv memory = do
+    showBindings' typingEnv evalEnv []
+    evalLoop langName varCounter typingEnv evalEnv memory where
+      showBindings' []          _  _     = return ()
+      showBindings' ((n, _):bs) ee shown
+        | n `elem` shown                 =
+          showBindings' bs ee shown
+      showBindings' ((n, t):bs) ee shown = do
+        let Right v = n `EE.get` ee
+        outputStrLn $ n ++ " = " ++ show v ++ " : " ++ show t
+        showBindings' bs ee $ n:shown
+
   evalLoop :: (MonadException m, Language n p tp e i v) => n -> Integer -> TE.Env tp -> EE.Env v e -> Memory v -> InputT m ()
   evalLoop langName varCounter typingEnv evalEnv memory = do
     c <- getInputLine $ show langName ++ " :> "
     case c of
-      Nothing               -> evalLoop langName varCounter typingEnv evalEnv memory
+      Just ":h"                            -> printHelp langName varCounter typingEnv evalEnv memory
+      Just ":help"                         -> printHelp langName varCounter typingEnv evalEnv memory
+      Just "?"                             -> printHelp langName varCounter typingEnv evalEnv memory
 
-      Just ":h"             -> printHelp langName varCounter typingEnv evalEnv memory
+      Just ":q"                            -> return ()
+      Just ":quit"                         -> return ()
+      Nothing                              -> return ()
 
-      Just ":q"             -> return ()
+      Just ":c"                            -> clear langName $ size memory
+      Just ":clear"                        -> clear langName $ size memory
 
-      Just ":c"             -> clear langName $ size memory
+      Just ":s"                            -> showBindings langName varCounter typingEnv evalEnv memory
+      Just ":show"                         -> showBindings langName varCounter typingEnv evalEnv memory
 
-      Just (':':'t':exprS)  -> checkType exprS langName varCounter typingEnv evalEnv memory
+      Just (':':'t':' ':exprS)             -> checkType exprS langName varCounter typingEnv evalEnv memory
+      Just (':':'t':'y':'p':'e':' ':exprS) -> checkType exprS langName varCounter typingEnv evalEnv memory
 
-      Just (':':'l':path)   -> secureTypeAndEvalProgram path langName varCounter typingEnv evalEnv memory
+      Just (':':'l':' ':path)              -> secureTypeAndEvalProgram path langName varCounter typingEnv evalEnv memory
+      Just (':':'l':'o':'a':'d':' ':path)  -> secureTypeAndEvalProgram path langName varCounter typingEnv evalEnv memory
 
-      Just instrS           -> typeAndEvalInstruction instrS langName varCounter typingEnv evalEnv memory
+      Just (':':rest)                      -> unknownCommand rest langName varCounter typingEnv evalEnv memory
+
+      Just ""                              -> evalLoop langName varCounter typingEnv evalEnv memory
+
+      Just instrS                          -> typeAndEvalInstruction instrS langName varCounter typingEnv evalEnv memory
 
   interpreter :: Language n p tp e i v => n -> Integer -> IO ()
   interpreter langName memSize = runInputT defaultSettings $ clear langName memSize

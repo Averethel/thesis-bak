@@ -1,8 +1,9 @@
 module Languages.MiniML.Syntax where
+  import Utils.EvalEnv
 
-  type LowercaseIdent = String
+  data MiniMLName = MiniML
 
-  type ValueName = LowercaseIdent
+  type Name = String
 
   data Constant =
       C_Int Integer
@@ -22,8 +23,9 @@ module Languages.MiniML.Syntax where
     | U_Empty
     | U_Head
     | U_Tail
+    | U_PartBin BinaryPrim Value
     deriving Eq
-  
+
   data BinaryPrim =
       B_Eq
     | B_I_Plus
@@ -34,7 +36,7 @@ module Languages.MiniML.Syntax where
     deriving Eq
 
   data Pattern =
-      P_Val ValueName
+      P_Val Name
     | P_Wildcard
     | P_Const Constant
     | P_Tuple [Pattern]
@@ -45,13 +47,12 @@ module Languages.MiniML.Syntax where
 
   type FunBinding = (Pattern, Expr, Expr)
 
-  type LetRecBinding = (ValueName, Expr)
+  type LetRecBinding = (Name, Expr)
 
   data Expr =
       E_UPrim UnaryPrim
     | E_BPrim BinaryPrim
-    | E_Val ValueName
-    | E_Location Integer
+    | E_Val Name
     | E_Const Constant
     | E_Apply Expr Expr
     | E_Cons Expr Expr
@@ -66,7 +67,6 @@ module Languages.MiniML.Syntax where
     | E_LetRec [LetRecBinding] Expr
     | E_MatchFailure
     | E_FatBar Expr Expr
-    | Null
     deriving Eq
 
   data Value =
@@ -77,7 +77,11 @@ module Languages.MiniML.Syntax where
     | V_Bool Bool
     | V_List [Value]
     | V_Tuple [Value]
-    | V_Fun (Value -> Value)
+    | V_Clo (Env Value Expr) [FunBinding]
+    | V_Null
+    | V_Pointer Integer
+    | V_Error String
+    deriving Eq
 
   data Definition =
       D_Let [Binding]
@@ -91,7 +95,7 @@ module Languages.MiniML.Syntax where
 
   type Program = [Instruction]
 
-  data Kind = 
+  data Kind =
       K_Type
     | K_Arrow Kind Kind
     deriving Eq

@@ -1,18 +1,19 @@
---(inputParser, program, expressionParser)
 module Languages.MiniML.Parser  where
   import Languages.MiniML.Syntax
-  import Languages.MiniML.PrettyPrint
+
+  import Utils.RunParser
 
   import Control.Applicative hiding ((<|>), many)
   import Data.Functor
   import Data.Functor.Identity
 
   import Text.Parsec.Language
-  import Text.Parsec.Prim
+  import Text.Parsec.Prim hiding (runParser)
   import Text.Parsec.Char
   import Text.Parsec.Combinator
   import Text.Parsec.Expr
   import Text.Parsec.Error
+  import Text.Parsec.String (parseFromFile)
   import qualified Text.Parsec.Token as PTok
 
   type Parser = ParsecT String () Identity
@@ -45,7 +46,7 @@ module Languages.MiniML.Parser  where
   lang :: PTok.GenTokenParser String u Identity
   lang = PTok.makeTokenParser langDef
 
-  identifier :: Parser LowercaseIdent
+  identifier :: Parser Name
   identifier = PTok.identifier lang
 
   reserved :: String -> Parser ()
@@ -193,7 +194,7 @@ module Languages.MiniML.Parser  where
                 [Prefix (reserved "head" *> pure (E_Apply (E_UPrim U_Head)))],
                 [Prefix (reserved "tail" *> pure (E_Apply (E_UPrim U_Tail)))],
                 [Prefix (reserved "empty?" *> pure (E_Apply (E_UPrim U_Empty)))],
-                [Infix (reservedOp "@" *> pure E_Apply) AssocLeft],
+                [Infix (pure E_Apply) AssocLeft],
                 [Infix (reservedOp "::" *> pure E_Cons) AssocRight],
                 [Infix (reservedOp "&&" *> pure E_And) AssocLeft],
                 [Infix (reservedOp "||" *> pure E_Or) AssocLeft],
@@ -222,11 +223,11 @@ module Languages.MiniML.Parser  where
   program :: Parser Program
   program = many instruction
 
-  runPp :: Parser a -> String -> Either ParseError a
-  runPp p = parse (PTok.whiteSpace lang  >> p) ""
+  parseExpression :: String -> Either ParseError Expr
+  parseExpression = runParser lang expression
 
-  inputParser :: String -> Either ParseError Instruction
-  inputParser = runPp instruction
+  parseInstruction :: String -> Either ParseError Instruction
+  parseInstruction = runParser lang instruction
 
-  expressionParser :: String -> Either ParseError Expr
-  expressionParser = runPp (expression <* reservedOp ";;")
+  parseProgramFromFile :: String -> IO (Either ParseError Program)
+  parseProgramFromFile = parseFromFile program

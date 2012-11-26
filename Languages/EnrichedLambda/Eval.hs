@@ -98,7 +98,7 @@ module Languages.EnrichedLambda.Eval where
       return (V_Cell boolTag falseTag [], mem)
   applyBinaryPrim mem B_Eq     (V_Pointer a)     (V_Pointer b)         = do
     (v1, mem1) <- applyUnaryPrim mem U_Deref (V_Pointer a)
-    (v2, mem2) <- applyUnaryPrim mem U_Deref (V_Pointer b)
+    (v2, mem2) <- applyUnaryPrim mem1 U_Deref (V_Pointer b)
     applyBinaryPrim mem2 B_Eq v1 v2
   applyBinaryPrim mem B_Plus   (V_Int n)         (V_Int m)             =
     return (V_Int $ n + m, mem)
@@ -214,10 +214,10 @@ module Languages.EnrichedLambda.Eval where
     (v, mem') <- evalExpression mem env ex
     return (Just v, (env `extend` ("it", v)), mem')
 
-  evalProgram :: MonadError String m => Memory Value -> Env Value Expr -> Program -> m (Value, Env Value Expr, Memory Value)
+  evalProgram :: MonadError String m => Memory Value -> Env Value Expr -> Program -> m (Maybe Value, Env Value Expr, Memory Value)
   evalProgram mem env ([],     e) = do
     (v, mem') <- evalExpression mem env e
-    return (v, (env `extend` ("it", v)), mem')
+    return (Just v, (env `extend` ("it", v)), mem')
   evalProgram mem env ((d:ds), e) = do
     (env', mem') <- evalDefinition mem env d
     evalProgram mem' env' (ds, e)

@@ -18,7 +18,6 @@ module Languages.EnrichedLambda.PrettyPrint () where
   isAtomicExpr :: Expr -> Bool
   isAtomicExpr (E_Val _)      = True
   isAtomicExpr (E_Num _)      = True
-  isAtomicExpr (E_Location _) = True
   isAtomicExpr _              = False
 
   isAtomicValue :: Value -> Bool
@@ -28,6 +27,7 @@ module Languages.EnrichedLambda.PrettyPrint () where
   isAtomicValue (V_Pointer _)     = True
   isAtomicValue (V_Clo _ _ _)     = True
   isAtomicValue V_Null            = True
+  isAtomicValue (V_Error _)       = True
   isAtomicValue (V_Cell tp cs vs) =
     (tp == boolTag && (cs == falseTag || cs == trueTag) && vs == []) ||
     (tp == unitTag && cs == unitTagC && vs == []) ||
