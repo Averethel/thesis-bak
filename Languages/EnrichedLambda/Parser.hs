@@ -1,17 +1,19 @@
-module Languages.EnrichedLambda.Parser (inputParser, expressionParser, program) where
+module Languages.EnrichedLambda.Parser where
   import Languages.EnrichedLambda.Syntax
-  import Languages.EnrichedLambda.PrettyPrint
-  
+
+  import Utils.RunParser
+
   import Control.Applicative hiding ((<|>), many)
   import Data.Functor
   import Data.Functor.Identity
 
   import Text.Parsec.Language
-  import Text.Parsec.Prim
+  import Text.Parsec.Prim hiding (runParser)
   import Text.Parsec.Char
   import Text.Parsec.Combinator
   import Text.Parsec.Expr
   import Text.Parsec.Error
+  import Text.Parsec.String (parseFromFile)
   import qualified Text.Parsec.Token as PTok
 
   type Parser = ParsecT String () Identity
@@ -24,29 +26,27 @@ module Languages.EnrichedLambda.Parser (inputParser, expressionParser, program) 
     PTok.nestedComments  = True,
     PTok.identStart      = lower,
     PTok.identLetter     = alphaNum <|> char '_',
-    PTok.opStart         = oneOf "[(!&-=+/*:|;~,",
+    PTok.opStart         = oneOf "[(!&-=+/*:|;",
     PTok.opLetter        = oneOf "])!&-=+/*:|;>",
     PTok.reservedNames   = [ "true", "false",
                              "not", "ref",
                              "and", "or",
-                             "if", "then",
+                             "if", "then", "case",
                              "else", "function",
-                             "let", "letrec", "in", 
-                             "MatchFailure",
-                             "fst", "snd",
-                             "head", "tail", "empty?"],
+                             "let", "letrec", "in",
+                             "fst", "snd", "head",
+                             "tail", "empty?"],
     PTok.reservedOpNames = [ "[]", "()", "!", "&",
                              "-", "==", "+", "/",
                              "*", ":=", "::", "&&",
                              "||", ";", "=", "@",
-                             "|", "~", "->", ",",
-                             "(", ")"],
+                             "|", "->", ","],
     PTok.caseSensitive   = True }
 
   lang :: PTok.GenTokenParser String u Identity
   lang = PTok.makeTokenParser langDef
 
-  identifier :: Parser String
+  identifier :: Parser Name
   identifier = PTok.identifier lang
 
   reserved :: String -> Parser ()
@@ -67,35 +67,26 @@ module Languages.EnrichedLambda.Parser (inputParser, expressionParser, program) 
   commaSep :: Parser a -> Parser [a]
   commaSep = PTok.commaSep lang
 
+  commaSep1 :: Parser a -> Parser [a]
+  commaSep1 = PTok.commaSep1 lang
+
   semiSep :: Parser a -> Parser [a]
   semiSep = PTok.semiSep lang
 
   natural :: Parser Integer
   natural = PTok.natural lang
 
-  constant :: Parser Constant
-  constant = choice [pInt, pFalse, pTrue, pNil, pUnit] where
-    pInt   = C_Int <$> natural
-    pFalse = const C_False <$> reserved "false"
-    pTrue  = const C_True <$> reserved "true"
-    pNil   = const C_Nil <$> reservedOp "[]"
-    pUnit  = const C_Unit <$> reservedOp "()"
+  typeTag :: Parser TypeTag
+  typeTag = do { i <- many1 digit; return $ read i }
 
-  preLetRec :: Parser (String, Expr)
-  preLetRec = do 
-                v <- identifier
-                reservedOp "->"
-                e <- expression
-                return (v, e)
-  
-  letrecBindings :: Parser [(String, Expr)]
-  letrecBindings = do 
-                    d <- preLetRec
-                    ds <- many (reserved "and" *> preLetRec)
-                    return $ d:ds
+  constrTag :: Parser ConstrTag
+  constrTag = do { i <- many1 digit; return $ read i }
+
+  arity :: Parser Arity
+  arity = do { i <- many1 digit; return $ read i }
 
   unaryPrim :: Parser UnaryPrim
-  unaryPrim = choice [uNot, uRef, uDeref, uFst, uSnd, uHead, uTail] where
+  unaryPrim = choice [uNot, uFst, uSnd, uHead, uTail, uEmpty, uRef, uDeref] where
     uNot   = const U_Not <$> reserved "not"
     uRef   = const U_Ref <$> (reserved "ref" <|> reservedOp "!")
     uDeref = const U_Deref <$> reservedOp "&"
@@ -106,27 +97,89 @@ module Languages.EnrichedLambda.Parser (inputParser, expressionParser, program) 
     uEmpty = const U_Empty <$> reserved "empty?"
 
   binaryPrim :: Parser BinaryPrim
-  binaryPrim = choice [bEq, bPlus, bMinus, bMult, bDiv, bAssgn] where
+  binaryPrim = choice [bEq, bPlus, bMinus, bMult, bDiv, bAssgn, bAnd, bOr] where
     bEq    = const B_Eq <$> reservedOp "=="
     bPlus  = const B_Plus <$> reservedOp "+"
     bMinus = const B_Minus <$> reservedOp "-"
     bMult  = const B_Mult <$> reservedOp "*"
     bDiv   = const B_Div <$> reservedOp "/"
     bAssgn = const B_Assign <$> reservedOp ":="
+    bAnd   = const B_And <$> reserved "and"
+    bOr    = const B_Or <$> reserved "or"
+
+  eFunction :: Parser Expr
+  eFunction  = E_Function <$> (reserved "function" *> identifier <* reservedOp "=") <*> expression
+
+  letBinding :: Parser Binding
+  letBinding = do
+    i <- identifier
+    reservedOp "="
+    e <- expression
+    return (i, e)
+
+  letBindings :: Parser [Binding]
+  letBindings = do
+    b  <- letBinding
+    bs <- many (reserved "and" *> letBinding)
+    return $ b:bs
+
+  letrecBinding :: Parser Binding
+  letrecBinding = do
+    i <- identifier
+    reservedOp "="
+    f <- eFunction
+    return (i, f)
+
+  letrecBindings :: Parser [Binding]
+  letrecBindings = do
+    b <- letBinding
+    bs <- many (reserved "and" *> letrecBinding)
+    return $ b:bs
+
+  clause :: Parser Clause
+  clause = choice $ map try [cTrue, cFalse, cUnit, cNil, cCons, cPair, cCl] where
+    cTrue  = (\e ->       (boolTag, trueTag,  [],    e)) <$> (reserved "true" *> reservedOp "->" *> expression)
+    cFalse = (\e ->       (boolTag, falseTag, [],    e)) <$> (reserved "false" *> reservedOp "->" *> expression)
+    cUnit  = (\e ->       (unitTag, unitTagC, [],    e)) <$> (reservedOp "()" *> reservedOp "->" *> expression)
+    cNil   = (\e ->       (listTag, nilTag,   [],    e)) <$> (reservedOp "[]" *> reservedOp "->" *> expression)
+    cCons  = (\(a,b,e) -> (listTag, consTag,  [a,b], e)) <$> do { i <- identifier; reservedOp "::"; i' <- identifier; reservedOp "->"; e <- expression; return  (i, i', e)}
+    cPair  = (\(a,b,e) -> (pairTag, pairTagC, [a,b], e)) <$> do { reservedOp "("; i <- identifier; reservedOp ","; i' <- identifier; reservedOp ")"; reservedOp "->"; e <- expression; return (i, i', e)}
+    cCl    = do
+      reservedOp "<"
+      tt <- typeTag
+      reservedOp ","
+      ct <- constrTag
+      reservedOp ">"
+      ns <- many identifier
+      reservedOp "->"
+      e <- expression
+      return (tt, ct, ns, e)
+
+  clauses :: Parser [Clause]
+  clauses = do
+    c <- clause
+    cs <- many (reservedOp "|" *> clause)
+    return $ c:cs
 
   preExpression :: Parser Expr
-  preExpression = choice [try $ parens $ expression, pVal, pUprim, pBprim, pConst, pITE, pList, pPair, pLet, pLetRec, pFun, pMF] where
-    pVal    = E_Val <$> identifier
-    pUprim  = E_UPrim <$> (angles $ unaryPrim)
-    pBprim  = E_BPrim <$> (angles $ binaryPrim)
-    pConst  = E_Const <$> constant
-    pITE    = E_ITE <$> (reserved "if" *> expression) <*> (reserved "then" *> expression) <*> (reserved "else" *> expression)
-    pList   = foldr E_Cons (E_Const C_Nil) <$> (brackets . commaSep $ expression)
-    pPair   = E_Pair <$> (reservedOp "(" *> expression) <*> (reservedOp "," *> expression <* reservedOp ")")
-    pLet    = E_Let <$> (reserved "let" *> identifier) <*> (reservedOp "=" *> expression) <*> (reserved "in" *> expression)
-    pLetRec = E_LetRec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)
-    pFun    = E_Function <$> (reserved "function" *> identifier) <*> (reservedOp "->" *> expression)
-    pMF     = const E_MatchFailure <$> reserved "MatchFailure"
+  preExpression = choice $ map try [eUprim, eBprim, eVal, eNum, eList, ePair, eConstr, eCase, eFunction, eLet, eLetRec, parens expression] where
+    eUprim     = E_UPrim <$> (angles $ unaryPrim)
+    eBprim     = E_BPrim <$> (angles $ binaryPrim)
+    eVal       = E_Val <$> identifier
+    eNum       = E_Num <$> natural
+    eList      = foldr (\a -> \b -> E_Apply (E_Apply (E_Constr listTag consTag 2) a) b) (E_Constr listTag nilTag 0) <$> (brackets . commaSep $ expression)
+    ePair      = parens $ do { a <- expression; reservedOp ","; e2 <- expression; return $ E_Apply (E_Apply (E_Constr pairTag pairTagC 2) a) e2 }
+    eConstr    = choice $ map try [cTrue, cFalse, cUnit, cNil, cCons, cPair, cPack]
+    cTrue      = const (E_Constr boolTag trueTag 0) <$> reserved "true"
+    cFalse     = const (E_Constr boolTag falseTag 0) <$> reserved "false"
+    cUnit      = const (E_Constr unitTag unitTagC 0) <$> reservedOp "()"
+    cNil       = const (E_Constr listTag nilTag 0) <$> reservedOp "[]"
+    cCons      = const (E_Constr listTag consTag 2) <$> (angles $ reservedOp "::")
+    cPair      = const (E_Constr pairTag pairTagC 2) <$> (angles $ reservedOp ",")
+    cPack      = (\(t, c, a) -> E_Constr t c a) <$> do { reserved "Pack"; reservedOp "{"; t <- typeTag; reservedOp ","; c <- constrTag; reservedOp ","; a <- arity; reservedOp "}"; return (t, c, a)}
+    eCase      = E_Case <$> (reserved "case" *> expression) <*> (reserved "of" *> clauses)
+    eLet       = E_Let <$> (reserved "let" *> letBindings) <*> (reserved "in" *> expression)
+    eLetRec    = E_LetRec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)
 
   expressionPartApp :: Parser Expr
   expressionPartApp = buildExpressionParser [
@@ -135,7 +188,9 @@ module Languages.EnrichedLambda.Parser (inputParser, expressionParser, program) 
                 [Postfix (reservedOp "+" *> pure (E_Apply (E_BPrim B_Plus)))],
                 [Postfix (reservedOp "-" *> pure (E_Apply (E_BPrim B_Minus)))],
                 [Postfix (reservedOp "==" *> pure (E_Apply (E_BPrim B_Eq)))],
-                [Postfix (reservedOp ":=" *> pure (E_Apply (E_BPrim B_Assign)))]
+                [Postfix (reservedOp ":=" *> pure (E_Apply (E_BPrim B_Assign)))],
+                [Postfix (reservedOp "&&" *> pure (E_Apply (E_BPrim B_And)))],
+                [Postfix (reservedOp "||" *> pure (E_Apply (E_BPrim B_Or)))]
                 ] preExpression
 
   expressionFullApp :: Parser Expr
@@ -143,19 +198,21 @@ module Languages.EnrichedLambda.Parser (inputParser, expressionParser, program) 
                 [Prefix (reserved "not" *> pure (E_Apply (E_UPrim U_Not)))],
                 [Prefix ((reserved "ref" <|> reservedOp "!") *> pure (E_Apply (E_UPrim U_Ref)))],
                 [Prefix (reservedOp "&" *> pure (E_Apply (E_UPrim U_Deref)))],
+                [Prefix (reserved "fst" *> pure (E_Apply (E_UPrim U_Fst)))],
+                [Prefix (reserved "snd" *> pure (E_Apply (E_UPrim U_Snd)))],
                 [Prefix (reserved "head" *> pure (E_Apply (E_UPrim U_Head)))],
                 [Prefix (reserved "tail" *> pure (E_Apply (E_UPrim U_Tail)))],
-                [Prefix (reserved "fst" *> pure (E_Apply (E_UPrim U_Fst)))],
-                [Prefix (reserved "snd" *> pure (E_Apply (E_UPrim U_Not)))],
                 [Prefix (reserved "empty?" *> pure (E_Apply (E_UPrim U_Empty)))],
+                [Infix (pure E_Apply) AssocLeft],
+                [Infix (reservedOp "::" *> pure (\a b -> E_Apply (E_Apply (E_Constr listTag consTag 2) a) b)) AssocRight],
+                [Infix (reservedOp "&&" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_And) a) b)) AssocRight],
+                [Infix (reservedOp "||" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Or) a) b)) AssocRight],
                 [Infix (reservedOp "*" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Mult) a) b)) AssocLeft],
                 [Infix (reservedOp "/" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Div) a) b)) AssocLeft],
                 [Infix (reservedOp "+" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Plus) a) b)) AssocLeft],
                 [Infix (reservedOp "-" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Minus) a) b)) AssocLeft],
                 [Infix (reservedOp "==" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Eq) a) b)) AssocNone],
                 [Infix (reservedOp ":=" *> pure (\a b -> E_Apply (E_Apply (E_BPrim B_Assign) a) b)) AssocNone],
-                [Infix (reservedOp "@" *> pure E_Apply) AssocLeft],
-                [Infix (reservedOp "::" *> pure E_Cons) AssocRight],
                 [Infix (reservedOp ";" *> pure E_Seq) AssocRight]
                 ] preExpression
 
@@ -164,22 +221,29 @@ module Languages.EnrichedLambda.Parser (inputParser, expressionParser, program) 
 
   definition :: Parser Definition
   definition = choice [dLet, dLetRec] where
-    dLet    = D_Let <$> (reserved "let" *> identifier) <*> (reservedOp "=" *> expression)
-    dLetRec = D_LetRec <$> (reserved "letrec" *> letrecBindings)
+    dLet    = D_Let <$> (reserved "let" *> letBindings) <* reservedOp ";;"
+    dLetRec = D_LetRec <$> (reserved "letrec" *> letrecBindings) <* reservedOp ";;"
 
   instruction :: Parser Instruction
-  instruction = choice [try iex, idf] where
-    iex = IEX <$> expression <* reservedOp ";;"
-    idf = IDF <$> definition <* reservedOp ";;"
+  instruction = choice $ map try [iDf, iEx] where
+    iDf = IDF <$> definition
+    iEx = IEX <$> expression <* reservedOp ";;"
 
   program :: Parser Program
-  program = many instruction
+  program = do
+    dfs <- many definition
+    e   <- expression
+    reservedOp ";;"
+    return (dfs, e)
 
-  runPp :: Parser a -> String -> Either ParseError a
-  runPp p = parse (PTok.whiteSpace lang  >> p) ""
+  parseExpression :: String -> Either ParseError Expr
+  parseExpression = runParser lang expression
 
-  inputParser :: String -> Either ParseError Instruction
-  inputParser = runPp instruction
+  parseInstruction :: String -> Either ParseError Instruction
+  parseInstruction = runParser lang instruction
 
-  expressionParser :: String -> Either ParseError Expr
-  expressionParser = runPp (expression <* reservedOp ";;")
+  parseProgramFromFile :: String -> IO (Either ParseError Program)
+  parseProgramFromFile = parseFromFile program
+
+
+

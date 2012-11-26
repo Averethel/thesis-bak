@@ -1,8 +1,9 @@
 module Languages.MiniML.Syntax where
+  import Utils.EvalEnv
 
-  type LowercaseIdent = String
+  data MiniMLName = MiniML
 
-  type ValueName = LowercaseIdent
+  type Name = String
 
   data Constant =
       C_Int Integer
@@ -17,8 +18,14 @@ module Languages.MiniML.Syntax where
     | U_Ref
     | U_Deref
     | U_I_Minus
+    | U_Fst
+    | U_Snd
+    | U_Empty
+    | U_Head
+    | U_Tail
+    | U_PartBin BinaryPrim Value
     deriving Eq
-  
+
   data BinaryPrim =
       B_Eq
     | B_I_Plus
@@ -29,50 +36,66 @@ module Languages.MiniML.Syntax where
     deriving Eq
 
   data Pattern =
-      P_Val ValueName
+      P_Val Name
     | P_Wildcard
     | P_Const Constant
     | P_Tuple [Pattern]
     | P_Cons Pattern Pattern
-    -- P_List [Pattern] - syntactic sugar for foldr P_Cons (P_Const C_Nil)
     deriving Eq
 
   type Binding = (Pattern, Expr)
 
-  type LetRecBinding = (ValueName, [Binding])
+  type FunBinding = (Pattern, Expr, Expr)
+
+  type LetRecBinding = (Name, Expr)
 
   data Expr =
       E_UPrim UnaryPrim
     | E_BPrim BinaryPrim
-    | E_Val ValueName
-    | E_Location Integer -- for internal representation of references
+    | E_Val Name
     | E_Const Constant
     | E_Apply Expr Expr
     | E_Cons Expr Expr
-    -- E_List [Expr] - syntactic sugar for foldr E_Cons (E_Const C_Nil)
     | E_Tuple [Expr]
     | E_And Expr Expr
     | E_Or Expr Expr
     | E_ITE Expr Expr Expr
+    | E_Case Expr [Binding]
     | E_Seq Expr Expr
-    | E_Function [Binding]
-    | E_Let Binding Expr
+    | E_Function [FunBinding]
+    | E_Let [Binding] Expr
     | E_LetRec [LetRecBinding] Expr
-    | Null -- for memory emptiness
+    | E_MatchFailure
+    | E_FatBar Expr Expr
+    deriving Eq
+
+  data Value =
+      V_UPrim UnaryPrim
+    | V_BPrim BinaryPrim
+    | V_Unit
+    | V_Int Integer
+    | V_Bool Bool
+    | V_List [Value]
+    | V_Tuple [Value]
+    | V_Clo (Env Value Expr) [FunBinding]
+    | V_Null
+    | V_Pointer Integer
+    | V_Error String
     deriving Eq
 
   data Definition =
-      D_Let (Pattern, Expr)
+      D_Let [Binding]
     | D_LetRec [LetRecBinding]
     deriving Eq
 
   data Instruction =
       IDF Definition
     | IEX Expr
+    deriving Eq
 
   type Program = [Instruction]
 
-  data Kind = 
+  data Kind =
       K_Type
     | K_Arrow Kind Kind
     deriving Eq
@@ -83,7 +106,7 @@ module Languages.MiniML.Syntax where
     | Unit
     | List
     | Ref
-    deriving (Show, Eq)
+    deriving Eq
 
   type TypeVar = String
 

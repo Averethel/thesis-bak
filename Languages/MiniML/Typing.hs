@@ -2,211 +2,298 @@
   FlexibleContexts
   #-}
 
-module Languages.MiniML.Typing (type_of_definition, type_of_expression, type_of_program) where
-  import Languages.MiniML.Errors
-  import Languages.MiniML.Kinding
-  import Languages.MiniML.State
+module Languages.MiniML.Typing where
+  import Languages.MiniML.Instances
   import Languages.MiniML.Syntax
-  import Languages.MiniML.PrettyPrint
+
+  import qualified Utils.Classes.Type as TC
+  import Utils.Errors
+  import Utils.State
+  import qualified Utils.TypingEnv as TE
+  import Utils.Unification
 
   import Control.Monad.Error
   import Control.Monad.State
 
-  names_distinct :: [ValueName] -> Bool
-  names_distinct []     = True
-  names_distinct (x:xs) = names_distinct' x xs xs where
-    names_distinct' x []     []     = True
-    names_distinct' x []     (y:ys) = names_distinct' y ys ys
-    names_distinct' x (z:zs) ys
-      | x /= z                      = names_distinct' x zs ys
+  intType :: TypeExpr
+  intType = TE_Constr [] Int
+
+  boolType :: TypeExpr
+  boolType = TE_Constr [] Bool
+
+  unitType :: TypeExpr
+  unitType = TE_Constr [] Unit
+
+  listType :: TypeExpr -> TypeExpr
+  listType a = TE_Constr [a] List
+
+  refType :: TypeExpr -> TypeExpr
+  refType a = TE_Constr [a] Ref
+
+  namesDistinct :: [Name] -> Bool
+  namesDistinct []     = True
+  namesDistinct (x:xs) = namesDistinct' x xs xs where
+    namesDistinct' x []     []     = True
+    namesDistinct' x []     (y:ys) = namesDistinct' y ys ys
+    namesDistinct' x (z:zs) ys
+      | x /= z                      = namesDistinct' x zs ys
       | otherwise                   = False
 
-  get_names :: Pattern -> [ValueName]
-  get_names (P_Val x)      = [x]
-  get_names (P_Tuple es)   = concatMap get_names es
-  get_names (P_Cons p1 p2) = get_names p1 ++ get_names p2
-  get_names _              = []
+  getNames :: Pattern -> [Name]
+  getNames (P_Val x)      = [x]
+  getNames (P_Tuple es)   = concatMap getNames es
+  getNames (P_Cons p1 p2) = getNames p1 ++ getNames p2
+  getNames _              = []
 
-  type_of_constant :: (MonadState InterpreterState m, MonadError String m) => Constant -> m TypeExpr
-  type_of_constant (C_Int n) = 
-    return $ TE_Constr [] Int
-  type_of_constant C_False   =
-    return $ TE_Constr [] Bool
-  type_of_constant C_True    = 
-    return $ TE_Constr [] Bool
-  type_of_constant C_Nil     = do
-    v <- fresh_type_var
-    return $ TE_Constr [v] List
-  type_of_constant C_Unit    =
-    return $ TE_Constr [] Unit
-  
-  type_of_unary_primitive :: (MonadState InterpreterState m, MonadError String m) => UnaryPrim -> m TypeExpr
-  type_of_unary_primitive U_Not     = 
-    return $ TE_Arrow (TE_Constr [] Bool) (TE_Constr [] Bool)
-  type_of_unary_primitive U_Ref     = do
-    v <- fresh_type_var
-    return $ TE_Arrow v (TE_Constr [v] Ref)
-  type_of_unary_primitive U_Deref   = do
-    v <- fresh_type_var
-    return $ TE_Arrow (TE_Constr [v] Ref) v
-  type_of_unary_primitive U_I_Minus =
-    return $ TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)
+  typeOfConstant :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => Constant -> m TypeExpr
+  typeOfConstant (C_Int _) =
+    return intType
+  typeOfConstant C_False   =
+    return boolType
+  typeOfConstant C_True    =
+    return boolType
+  typeOfConstant C_Nil     = do
+    a <- newVar
+    return $ listType $ TE_Var a
+  typeOfConstant C_Unit    =
+    return unitType
 
-  type_of_binary_primitive :: (MonadState InterpreterState m, MonadError String m) => BinaryPrim -> m TypeExpr
-  type_of_binary_primitive B_Eq      = do
-    v <- fresh_type_var
-    add_simple_constraint v
-    return $ TE_Arrow v $ TE_Arrow v (TE_Constr [] Bool)
-  type_of_binary_primitive B_I_Plus  = 
-    return $ TE_Arrow (TE_Constr [] Int) $ TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)
-  type_of_binary_primitive B_I_Minus =
-    return $ TE_Arrow (TE_Constr [] Int) $ TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)
-  type_of_binary_primitive B_I_Mult  =
-    return $ TE_Arrow (TE_Constr [] Int) $ TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)
-  type_of_binary_primitive B_I_Div   =
-    return $ TE_Arrow (TE_Constr [] Int) $ TE_Arrow (TE_Constr [] Int) (TE_Constr [] Int)
-  type_of_binary_primitive B_Assign  = do
-    v <- fresh_type_var
-    return $ TE_Arrow (TE_Constr [v] Ref) $ TE_Arrow v (TE_Constr [] Unit)
+  typeOfUnaryPrim :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => UnaryPrim -> m TypeExpr
+  typeOfUnaryPrim U_Not     =
+    return $ TE_Arrow boolType boolType
+  typeOfUnaryPrim U_Ref     = do
+    a <- newVar
+    let v = TE_Var a
+    return $ TE_Arrow v $ refType v
+  typeOfUnaryPrim U_Deref   = do
+    a <- newVar
+    let v = TE_Var a
+    return $ TE_Arrow (refType v) v
+  typeOfUnaryPrim U_I_Minus =
+    return $ TE_Arrow intType intType
+  typeOfUnaryPrim U_Fst     = do
+    a <- newVar
+    b <- newVar
+    let v1 = TE_Var a
+    let v2 = TE_Var b
+    return $ TE_Arrow (TE_Tuple [v1, v2]) v1
+  typeOfUnaryPrim U_Snd     = do
+    a <- newVar
+    b <- newVar
+    let v1 = TE_Var a
+    let v2 = TE_Var b
+    return $ TE_Arrow (TE_Tuple [v1, v2]) v2
+  typeOfUnaryPrim U_Empty   = do
+    a <- newVar
+    let v = TE_Var a
+    return $ TE_Arrow (listType v) boolType
+  typeOfUnaryPrim U_Head    = do
+    a <- newVar
+    let v = TE_Var a
+    return $ TE_Arrow (listType v) v
+  typeOfUnaryPrim U_Tail    = do
+    a <- newVar
+    let v = TE_Var a
+    return $ TE_Arrow (listType v) $ listType v
 
-  type_and_bindings_of_pattern  :: (MonadState InterpreterState m, MonadError String m) => Pattern -> m TypeExpr
-  type_and_bindings_of_pattern p
-    | names_distinct $ get_names p = type_and_bindings_of_pattern' p
-    | otherwise                    = throwError $ non_distinct_names p
+  typeOfBinaryPrim :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => BinaryPrim -> m TypeExpr
+  typeOfBinaryPrim B_Eq      = do
+    a <- newVar
+    let v = TE_Var a
+    addSimpleConstraint v
+    return $ TE_Arrow v $ TE_Arrow v boolType
+  typeOfBinaryPrim B_I_Plus  =
+    return $ TE_Arrow intType $ TE_Arrow intType intType
+  typeOfBinaryPrim B_I_Minus =
+    return $ TE_Arrow intType $ TE_Arrow intType intType
+  typeOfBinaryPrim B_I_Mult  =
+    return $ TE_Arrow intType $ TE_Arrow intType intType
+  typeOfBinaryPrim B_I_Div   =
+    return $ TE_Arrow intType $ TE_Arrow intType intType
+  typeOfBinaryPrim B_Assign  = do
+    a <- newVar
+    let v = TE_Var a
+    return $ TE_Arrow (refType v) $ TE_Arrow v unitType
+
+  typeAndBindingsOfPattern :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => Pattern -> m (TypeExpr, TE.Env TypeExpr)
+  typeAndBindingsOfPattern p
+    | namesDistinct $ getNames p = typeAndBindingsOfPattern' p
+    | otherwise                  = throwError $ nonDistinctNames p
     where
-      type_and_bindings_of_pattern' :: (MonadState InterpreterState m, MonadError String m) => Pattern -> m TypeExpr
-      type_and_bindings_of_pattern' (P_Val x)      = do
-        v <- fresh_type_var
-        extend_typing_env x v
-        return $ v
-      type_and_bindings_of_pattern' P_Wildcard     =
-        fresh_type_var
-      type_and_bindings_of_pattern' (P_Const c)    =
-        type_of_constant c
-      type_and_bindings_of_pattern' (P_Tuple es)   = do
-        ts <- mapM type_and_bindings_of_pattern es
-        return $ TE_Tuple ts
-      type_and_bindings_of_pattern' (P_Cons p1 p2) = do
-        t1 <- type_and_bindings_of_pattern' p1
-        t2 <- type_and_bindings_of_pattern' p2
-        add_constraint t2 $ TE_Constr [t1] List
-        return t2
+      typeAndBindingsOfPattern' :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => Pattern -> m (TypeExpr, TE.Env TypeExpr)
+      typeAndBindingsOfPattern' (P_Val x)      = do
+        a <- newVar
+        let t = TE_Var a
+        return (t, [(x, t)])
+      typeAndBindingsOfPattern' P_Wildcard     = do
+        a <- newVar
+        return (TE_Var a, [])
+      typeAndBindingsOfPattern' (P_Const c)    = do
+        t <- typeOfConstant c
+        return (t, [])
+      typeAndBindingsOfPattern' (P_Tuple ps)   = do
+        tsbs <- mapM typeAndBindingsOfPattern ps
+        return (TE_Tuple $ map fst tsbs, concatMap snd tsbs)
+      typeAndBindingsOfPattern' (P_Cons p1 p2) = do
+        (t1, b1) <- typeAndBindingsOfPattern p1
+        (t2, b2) <- typeAndBindingsOfPattern p2
+        addConstraint t2 $ listType t1
+        return (t2, b1 ++ b2)
 
-  recfun :: (MonadError String m, MonadState InterpreterState m) => [LetRecBinding] -> m ()
-  recfun lrbs = recfun' (map fst lrbs) lrbs [] [] where
-    recfun' :: (MonadError String m, MonadState InterpreterState m) => [ValueName] -> [LetRecBinding] -> [TypeExpr] -> [TypeExpr] -> m ()
-    recfun' []     []             ts1 ts2 = add_bindings_constraints $ zip ts1 ts2
-    recfun' []     ((n, bs):lrbs) ts1 ts2 = do
-      tp <- type_of_function bs
-      recfun' [] lrbs ts1 (tp:ts2)
-    recfun' (n:ns) lrbs           ts1 ts2 = do
-      t <- fresh_type_var
-      extend_typing_env n t
-      recfun' ns lrbs (t:ts1) ts2
-    add_bindings_constraints :: (MonadError String m, MonadState InterpreterState m) => [(TypeExpr, TypeExpr)] -> m ()
-    add_bindings_constraints []            = return ()
-    add_bindings_constraints ((t1, t2):ts) = do
-      add_constraint t1 t2
-      add_bindings_constraints ts
+  addFunctionConstraints :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => [TypeExpr] -> m TypeExpr
+  addFunctionConstraints [t]        =
+    return t
+  addFunctionConstraints (t1:t2:ts) = do
+    addConstraint t1 t2
+    addFunctionConstraints (t2:ts)
 
-  type_of_function :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> m TypeExpr
-  type_of_function bs = type_of_function' bs [] where
-    type_of_function' :: (MonadError String m, MonadState InterpreterState m) => [Binding] -> [TypeExpr] -> m TypeExpr
-    type_of_function' []          acc = add_function_constraints acc
-    type_of_function' ((p, e):es) acc = do
-      env <- get_typing_env
-      t1  <- type_and_bindings_of_pattern p
-      t2  <- type_of_expression e
-      reset_typing_env env
-      type_of_function' es ((TE_Arrow t1 t2):acc)
-    add_function_constraints :: (MonadError String m, MonadState InterpreterState m) => [TypeExpr] -> m TypeExpr
-    add_function_constraints [t]        = return t
-    add_function_constraints (t1:t2:ts) = do 
-      add_constraint t1 t2
-      add_function_constraints (t2:ts)
+  typeOfFunction :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => TE.Env TypeExpr -> [FunBinding] -> m TypeExpr
+  typeOfFunction env bs = typeOfFunction' env bs [] where
+    typeOfFunction' :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => TE.Env TypeExpr -> [FunBinding] -> [TypeExpr] -> m TypeExpr
+    typeOfFunction' env [] acc             = addFunctionConstraints acc
+    typeOfFunction' env ((p, e, g):bs) acc = do
+      (tp, bsp) <- typeAndBindingsOfPattern p
+      te        <- typeOfExpr (bsp ++ env) e
+      tg        <- typeOfExpr (bsp ++ env) g
+      addConstraint tg boolType
+      typeOfFunction' env bs ((TE_Arrow tp te):acc)
 
-  type_of_expression :: (MonadError String m, MonadState InterpreterState m) => Expr -> m TypeExpr
-  type_of_expression (E_UPrim up)       =
-    type_of_unary_primitive up
-  type_of_expression (E_BPrim bp)       =
-    type_of_binary_primitive bp
-  type_of_expression (E_Val v)          = do
-    env <- get_typing_env
-    case env v of 
-      Nothing -> throwError $ unbound_variable v
-      Just t  -> return t
-  type_of_expression (E_Const c)        =
-    type_of_constant c
-  type_of_expression (E_Apply e1 e2)    = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2
-    tv <- fresh_type_var
-    add_constraint t1 (TE_Arrow t2 tv)
-    return tv
-  type_of_expression (E_Cons e1 e2)     = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2
-    add_constraint t2 (TE_Constr [t1] List)
+  typeOfCase :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => TE.Env TypeExpr -> [Binding] -> m TypeExpr
+  typeOfCase env bs = typeOfCase' env bs [] where
+    typeOfCase' :: (MonadError String m, MonadState (InterpreterState TypeExpr) m) => TE.Env TypeExpr -> [Binding] -> [TypeExpr] -> m TypeExpr
+    typeOfCase' env []          acc = addFunctionConstraints acc
+    typeOfCase' env ((p, e):bs) acc = do
+      (tp, bsp) <- typeAndBindingsOfPattern p
+      te        <- typeOfExpr (bsp ++ env) e
+      typeOfCase' env bs ((TE_Arrow tp te):acc)
+
+  extendEnv :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => TE.Env TypeExpr -> [Binding] -> m (TE.Env TypeExpr)
+  extendEnv env []          = return env
+  extendEnv env ((p, e):bs) = do
+    te         <- typeOfExpr env e
+    (tp, env') <- typeAndBindingsOfPattern p
+    addConstraint tp te
+    s          <- unify
+    extendEnv (map (\(n, t) -> (n, t `TC.applySubst` s)) env' ++ env) bs
+
+  recursiveExtend :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => TE.Env TypeExpr -> [LetRecBinding] -> m (TE.Env TypeExpr)
+  recursiveExtend env bs = recursiveExtend' env (map fst bs) bs where
+    recursiveExtend' :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => TE.Env TypeExpr -> [Name] -> [LetRecBinding] -> m (TE.Env TypeExpr)
+    recursiveExtend' env []     []          = return env
+    recursiveExtend' env []     ((n, e):bs) = do
+      t1 <- typeOfExpr env e
+      t2 <- n `TE.get` env
+      addConstraint t1 t2
+      s  <- unify
+      recursiveExtend' (env `TE.extend` (n, t1 `TC.applySubst` s)) [] bs
+    recursiveExtend' env (n:ns) bs          = do
+      a <- newVar
+      let v = TE_Var a
+      recursiveExtend' (env `TE.extend` (n, v)) ns bs
+
+  typeOfExpr :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => TE.Env TypeExpr -> Expr -> m TypeExpr
+  typeOfExpr env (E_UPrim up)     =
+    typeOfUnaryPrim up
+  typeOfExpr env (E_BPrim bp)     =
+    typeOfBinaryPrim bp
+  typeOfExpr env (E_Val n)        =
+    n `TE.get` env
+  typeOfExpr env (E_Const c)      =
+    typeOfConstant c
+  typeOfExpr env (E_Apply e1 e2)  = do
+    t1 <- typeOfExpr env e1
+    t2 <- typeOfExpr env e2
+    a  <- newVar
+    let v = TE_Var a
+    addConstraint t1 $ TE_Arrow t2 v
+    return v
+  typeOfExpr env (E_Cons e1 e2)   = do
+    t1 <- typeOfExpr env e1
+    t2 <- typeOfExpr env e2
+    addConstraint t2 $ listType t1
     return t2
-  type_of_expression (E_Tuple es)       = do
-    ts <- mapM type_of_expression es
+  typeOfExpr env (E_Tuple es)     = do
+    ts <- mapM (typeOfExpr env) es
     return $ TE_Tuple ts
-  type_of_expression (E_And e1 e2)      = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2
-    add_constraint t1 $ TE_Constr [] Bool
-    add_constraint t2 $ TE_Constr [] Bool
-    return $ TE_Constr [] Bool
-  type_of_expression (E_Or e1 e2)       = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2
-    add_constraint t1 $ TE_Constr [] Bool
-    add_constraint t2 $ TE_Constr [] Bool
-    return $ TE_Constr [] Bool
-  type_of_expression (E_ITE e1 e2 e3)   = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2
-    t3 <- type_of_expression e3
-    add_constraint t1 $ TE_Constr [] Bool
-    add_constraint t2 t3
-    return t3 
-  type_of_expression (E_Seq e1 e2)      = do
-    t1 <- type_of_expression e1
-    t2 <- type_of_expression e2
-    add_constraint t1 $ TE_Constr [] Unit
+  typeOfExpr env (E_And e1 e2)    = do
+    t1 <- typeOfExpr env e1
+    t2 <- typeOfExpr env e2
+    addConstraint t1 boolType
+    addConstraint t2 boolType
+    return boolType
+  typeOfExpr env (E_Or e1 e2)     = do
+    t1 <- typeOfExpr env e1
+    t2 <- typeOfExpr env e2
+    addConstraint t1 boolType
+    addConstraint t2 boolType
+    return boolType
+  typeOfExpr env (E_ITE e1 e2 e3) = do
+    t1 <- typeOfExpr env e1
+    t2 <- typeOfExpr env e2
+    t3 <- typeOfExpr env e3
+    addConstraint t1 boolType
+    addConstraint t2 t3
     return t2
-  type_of_expression (E_Function bs)    = do
-    type_of_function bs
-  type_of_expression (E_Let (p, e1) e2) = do
-    env <- get_typing_env
-    tp  <- type_and_bindings_of_pattern p
-    t1  <- type_of_expression e1
-    add_constraint tp t1
-    t2  <- type_of_expression e2
-    reset_typing_env env
+  typeOfExpr env (E_Seq e1 e2)    = do
+    t1 <- typeOfExpr env e1
+    t2 <- typeOfExpr env e2
+    addConstraint t1 unitType
     return t2
-  type_of_expression (E_LetRec lrbs e2) = do
-    env <- get_typing_env
-    recfun lrbs
-    t2 <- type_of_expression e2
-    reset_typing_env env
+  typeOfExpr env (E_Function bs)  =
+    typeOfFunction env bs
+  typeOfExpr env (E_Case e bs)    = do
+    t1                <- typeOfExpr env e
+    (TE_Arrow t1' t2) <- typeOfCase env bs
+    addConstraint t1 t1'
+    return t2
+  typeOfExpr env (E_Let bs e)     = do
+    env' <- extendEnv env bs
+    typeOfExpr env' e
+  typeOfExpr env (E_LetRec rbs e) = do
+    env' <- recursiveExtend env rbs
+    typeOfExpr env' e
+  typeOfExpr env E_MatchFailure   = do
+    a <- newVar
+    return $ TE_Var a
+  typeOfExpr env (E_FatBar e1 e2) = do
+    t1 <- typeOfExpr env e1
+    t2 <- typeOfExpr env e2
+    addConstraint t1 t2
     return t2
 
-  type_of_definition :: (MonadError String m, MonadState InterpreterState m) => Definition -> m ()
-  type_of_definition (D_Let (p, e))  = do
-    tp <- type_and_bindings_of_pattern p
-    te <- type_of_expression e
-    add_constraint tp te
-  type_of_definition (D_LetRec lrbs) = recfun lrbs
+  typeOfDefinition :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => TE.Env TypeExpr -> Definition -> m (TE.Env TypeExpr)
+  typeOfDefinition env (D_Let bs)    = extendEnv env bs
+  typeOfDefinition env (D_LetRec bs) = recursiveExtend env bs
 
-  type_of_instruction :: (MonadError String m, MonadState InterpreterState m) => Instruction -> m ()
-  type_of_instruction (IDF df) = type_of_definition df
-  type_of_instruction (IEX ex) = do
-    t <- type_of_expression ex
-    extend_typing_env "it" t
+  typeOfInstr :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => TE.Env TypeExpr -> Instruction -> m (Maybe TypeExpr, TE.Env TypeExpr, Integer)
+  typeOfInstr env (IDF df) = do
+    env' <- typeOfDefinition env df
+    st   <- get
+    return (Nothing, env', variableCounter st + 1)
+  typeOfInstr env (IEX ex) = do
+    t  <- typeOfExpr env ex
+    s  <- unify
+    let tp = t `TC.applySubst` s
+    st <- get
+    return $ (Just tp, env `TE.extend` ("it", tp), variableCounter st + 1)
 
-  type_of_program :: (MonadState InterpreterState m, MonadError String m) => Program -> m ()
-  type_of_program []     = return ()
-  type_of_program (i:is) = do
-    type_of_instruction i
-    type_of_program is
+  typeOfProg :: (MonadState (InterpreterState TypeExpr) m, MonadError String m) => TE.Env TypeExpr -> Program -> m (Maybe TypeExpr, TE.Env TypeExpr, Integer)
+  typeOfProg env []     = do
+    st <- get
+    tp <- do {
+      a <- "it" `TE.get` env;
+      return . Just $ a
+    } `catchError` (\_ -> return Nothing)
+    return (tp, env, variableCounter st + 1)
+  typeOfProg env (i:is) = do
+    (_, env', _) <- typeOfInstr env i
+    typeOfProg env' is
+
+  typeOfExpression :: Integer -> TE.Env TypeExpr -> Expr -> Either String TypeExpr
+  typeOfExpression n env e = fst $ runState (runErrorT (do { t <- typeOfExpr env e; s <- unify; return $ t `TC.applySubst` s})) emptyState {variableCounter = n}
+
+  typeOfInstruction :: Integer -> TE.Env TypeExpr -> Instruction -> Either String (Maybe TypeExpr, TE.Env TypeExpr, Integer)
+  typeOfInstruction n env instr = fst $ runState (runErrorT (typeOfInstr env instr)) emptyState {variableCounter = n}
+
+  typeOfProgram :: Integer -> TE.Env TypeExpr -> Program -> Either String (Maybe TypeExpr, TE.Env TypeExpr, Integer)
+  typeOfProgram n env p = fst $ runState (runErrorT (typeOfProg env p)) emptyState {variableCounter = n}

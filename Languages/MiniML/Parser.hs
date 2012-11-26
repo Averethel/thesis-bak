@@ -1,17 +1,19 @@
-module Languages.MiniML.Parser (inputParser, program, expressionParser) where
+module Languages.MiniML.Parser  where
   import Languages.MiniML.Syntax
-  import Languages.MiniML.PrettyPrint
+
+  import Utils.RunParser
 
   import Control.Applicative hiding ((<|>), many)
   import Data.Functor
   import Data.Functor.Identity
 
   import Text.Parsec.Language
-  import Text.Parsec.Prim
+  import Text.Parsec.Prim hiding (runParser)
   import Text.Parsec.Char
   import Text.Parsec.Combinator
   import Text.Parsec.Expr
   import Text.Parsec.Error
+  import Text.Parsec.String (parseFromFile)
   import qualified Text.Parsec.Token as PTok
 
   type Parser = ParsecT String () Identity
@@ -31,7 +33,9 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
                              "and", "or",
                              "if", "then",
                              "else", "function",
-                             "let", "letrec", "in"],
+                             "let", "letrec", "in",
+                             "fst", "snd", "head",
+                             "tail", "empty?"],
     PTok.reservedOpNames = [ "[]", "()", "!", "&",
                              "-", "==", "+", "/",
                              "*", ":=", "::", "&&",
@@ -42,7 +46,7 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
   lang :: PTok.GenTokenParser String u Identity
   lang = PTok.makeTokenParser langDef
 
-  identifier :: Parser LowercaseIdent
+  identifier :: Parser Name
   identifier = PTok.identifier lang
 
   reserved :: String -> Parser ()
@@ -63,11 +67,21 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
   commaSep :: Parser a -> Parser [a]
   commaSep = PTok.commaSep lang
 
+  commaSep1 :: Parser a -> Parser [a]
+  commaSep1 = PTok.commaSep1 lang
+
   semiSep :: Parser a -> Parser [a]
   semiSep = PTok.semiSep lang
 
   natural :: Parser Integer
   natural = PTok.natural lang
+
+  tuple :: Parser a -> Parser [a]
+  tuple parser = do
+    e <- parser
+    reservedOp ","
+    rest <- commaSep1 parser
+    return $ e:rest
 
   constant :: Parser Constant
   constant = choice [pInt, pFalse, pTrue, pNil, pUnit] where
@@ -78,11 +92,11 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
     pUnit  = const C_Unit <$> reservedOp "()"
 
   prePattern :: Parser Pattern
-  prePattern = choice [pVal, pWild, pConst, pTuple, pList, parens $ pattern] where
+  prePattern = choice $ [pVal, pWild, try pConst, try pTuple, pList, parens $ pattern] where
     pVal   = P_Val <$> identifier
     pWild  = const P_Wildcard <$> char '_'
     pConst = P_Const <$> constant
-    pTuple = P_Tuple <$> (parens . commaSep $ pattern)
+    pTuple = P_Tuple <$> (parens . tuple $ pattern)
     pList  = foldr P_Cons (P_Const C_Nil) <$> (brackets . commaSep $ pattern)
 
   pattern :: Parser Pattern
@@ -95,32 +109,47 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
                           e <- expression
                           return (p, e)
 
-  patternMatching :: String -> Parser [(Pattern, Expr)]
+  patternMatching :: String -> Parser [Binding]
   patternMatching s = do
                       first <- prePatternMatching s
                       rest  <- many (reservedOp "|" *> prePatternMatching s)
                       return $ first:rest
 
-  preLetRec :: Parser (ValueName, [(Pattern, Expr)])
+  patternMatchingWithGuard :: String -> Parser [FunBinding]
+  patternMatchingWithGuard s = do
+    pss <- patternMatching s
+    return $ map (\(p, e) -> (p, e, E_Const C_True)) pss
+
+  letBindings :: Parser [Binding]
+  letBindings = do
+                  first <- prePatternMatching "="
+                  rest  <- many (reserved "and" *> prePatternMatching "=")
+                  return $ first:rest
+
+  preLetRec :: Parser LetRecBinding
   preLetRec = do
                 i <- identifier
                 reservedOp "="
-                reserved "function"
-                pm <- patternMatching "->"
-                return (i, pm)
-  
-  letrecBindings :: Parser [(ValueName, [(Pattern, Expr)])]
-  letrecBindings = do 
+                e <- expression
+                return (i, e)
+
+  letrecBindings :: Parser [LetRecBinding]
+  letrecBindings = do
                     d <- preLetRec
                     ds <- many (reserved "and" *> preLetRec)
                     return $ d:ds
 
   unaryPrim :: Parser UnaryPrim
-  unaryPrim = choice [uNot, uRef, uDeref, uMinus] where
+  unaryPrim = choice [uNot, uFst, uSnd, uHead, uTail, uEmpty, uRef, uDeref, uMinus] where
     uNot   = const U_Not <$> reserved "not"
     uRef   = const U_Ref <$> (reserved "ref" <|> reservedOp "!")
     uDeref = const U_Deref <$> reservedOp "&"
     uMinus = const U_I_Minus <$> reservedOp "~"
+    uFst   = const U_Fst <$> reserved "fst"
+    uSnd   = const U_Snd <$> reserved "snd"
+    uHead  = const U_Head <$> reserved "head"
+    uTail  = const U_Tail <$> reserved "tail"
+    uEmpty = const U_Empty <$> reserved "empty?"
 
   binaryPrim :: Parser BinaryPrim
   binaryPrim = choice [bEq, bPlus, bMinus, bMult, bDiv, bAssgn] where
@@ -132,14 +161,14 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
     bAssgn = const B_Assign <$> reservedOp ":="
 
   preExpression :: Parser Expr
-  preExpression = choice [try $ parens expression, eVal, eConst, eList, eTuple, eITE, eFunction, eLet, eLetRec, try eUprim, eBprim] where
+  preExpression = choice $ map try [eUprim, eBprim, eVal, eConst, eList, eTuple, eITE, eFunction, eLet, eLetRec, parens expression] where
     eVal       = E_Val <$> identifier
     eConst     = E_Const <$> constant
     eList      = foldr E_Cons (E_Const C_Nil) <$> (brackets . commaSep $ expression)
-    eTuple     = E_Tuple <$> (parens . commaSep $ expression)
+    eTuple     = E_Tuple <$> (parens $ tuple expression)
     eITE       = E_ITE <$> (reserved "if" *> expression) <*> (reserved "then" *> expression) <*> (reserved "else" *> expression)
-    eFunction  = E_Function <$> (reserved "function" *> patternMatching "->")
-    eLet       = E_Let <$> (reserved "let" *> prePatternMatching "=") <*> (reserved "in" *> expression)
+    eFunction  = E_Function <$> (reserved "function" *> patternMatchingWithGuard "->")
+    eLet       = E_Let <$> (reserved "let" *> letBindings) <*> (reserved "in" *> expression)
     eLetRec    = E_LetRec <$> (reserved "letrec" *> letrecBindings) <*> (reserved "in" *> expression)
     eUprim     = E_UPrim <$> (angles $ unaryPrim)
     eBprim     = E_BPrim <$> (angles $ binaryPrim)
@@ -160,7 +189,12 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
                 [Prefix ((reserved "ref" <|> reservedOp "!") *> pure (E_Apply (E_UPrim U_Ref)))],
                 [Prefix (reservedOp "&" *> pure (E_Apply (E_UPrim U_Deref)))],
                 [Prefix (reservedOp "-" *> pure (E_Apply (E_UPrim U_I_Minus)))],
-                [Infix (reservedOp "@" *> pure E_Apply) AssocLeft],
+                [Prefix (reserved "fst" *> pure (E_Apply (E_UPrim U_Fst)))],
+                [Prefix (reserved "snd" *> pure (E_Apply (E_UPrim U_Snd)))],
+                [Prefix (reserved "head" *> pure (E_Apply (E_UPrim U_Head)))],
+                [Prefix (reserved "tail" *> pure (E_Apply (E_UPrim U_Tail)))],
+                [Prefix (reserved "empty?" *> pure (E_Apply (E_UPrim U_Empty)))],
+                [Infix (pure E_Apply) AssocLeft],
                 [Infix (reservedOp "::" *> pure E_Cons) AssocRight],
                 [Infix (reservedOp "&&" *> pure E_And) AssocLeft],
                 [Infix (reservedOp "||" *> pure E_Or) AssocLeft],
@@ -178,7 +212,7 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
 
   definition :: Parser Definition
   definition = choice [dLet, dLetRec] where
-    dLet    = D_Let <$> (reserved "let" *> prePatternMatching "=")
+    dLet    = D_Let <$> (reserved "let" *> letBindings)
     dLetRec = D_LetRec <$> (reserved "letrec" *> letrecBindings)
 
   instruction :: Parser Instruction
@@ -189,11 +223,11 @@ module Languages.MiniML.Parser (inputParser, program, expressionParser) where
   program :: Parser Program
   program = many instruction
 
-  runPp :: Parser a -> String -> Either ParseError a
-  runPp p = parse (PTok.whiteSpace lang  >> p) ""
+  parseExpression :: String -> Either ParseError Expr
+  parseExpression = runParser lang expression
 
-  inputParser :: String -> Either ParseError Instruction
-  inputParser = runPp instruction
+  parseInstruction :: String -> Either ParseError Instruction
+  parseInstruction = runParser lang instruction
 
-  expressionParser :: String -> Either ParseError Expr
-  expressionParser = runPp (expression <* reservedOp ";;")
+  parseProgramFromFile :: String -> IO (Either ParseError Program)
+  parseProgramFromFile = parseFromFile program
