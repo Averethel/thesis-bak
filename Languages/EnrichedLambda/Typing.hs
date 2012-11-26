@@ -15,16 +15,16 @@ module Languages.EnrichedLambda.Typing where
   import Control.Monad.State
 
   boolType :: Type
-  boolType = T_Defined 0 []
+  boolType = T_Defined boolTag []
 
   unitType :: Type
-  unitType = T_Defined 1 []
+  unitType = T_Defined unitTag []
 
   listType :: Type -> Type
-  listType t = T_Defined 2 [t]
+  listType t = T_Defined listTag [t]
 
   pairType :: Type -> Type -> Type
-  pairType a b = T_Defined 3 [a, b]
+  pairType a b = T_Defined pairTag [a, b]
 
   typeOfUnaryPrim :: (MonadState (InterpreterState Type) m, MonadError String m) => UnaryPrim -> m Type
   typeOfUnaryPrim U_Not   =
