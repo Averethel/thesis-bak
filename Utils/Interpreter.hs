@@ -18,7 +18,15 @@ module Utils.Interpreter (interpreter) where
 
   printHelp :: (MonadException m, Language n p tp e i v) => n -> Integer -> TE.Env tp -> EE.Env v e -> Memory v -> InputT m ()
   printHelp langName varCounter typingEnv evalEnv memory = do
-    outputStrLn "HERE WOULD BE HELP"
+    outputStrLn "Available commands"
+    outputStrLn "\t:c, :clear              - reset interpreter state"
+    outputStrLn "\t:h, :help, ?            - prints this help"
+    outputStrLn $ "\t:l <path>, :load <path> - loads " ++ show langName ++ " program"
+    outputStrLn "\t:t <expr>, :type <expr> - checks type of expression"
+    outputStrLn "\t:s, :show               - shows current bindings"
+    outputStrLn "\t:q, :quit, EOF          - exit"
+    evalLoop langName varCounter typingEnv evalEnv memory
+
   unknownCommand :: (MonadException m, Language n p tp e i v) => String -> n -> Integer -> TE.Env tp -> EE.Env v e -> Memory v -> InputT m ()
   unknownCommand c langName varCounter typingEnv evalEnv memory = do
     outputStrLn $ "Unknown command: " ++ show c
