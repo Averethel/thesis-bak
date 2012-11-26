@@ -23,6 +23,7 @@ module Languages.MiniML.Syntax where
     | U_Empty
     | U_Head
     | U_Tail
+    | U_PartBin BinaryPrim Value
     deriving Eq
 
   data BinaryPrim =
