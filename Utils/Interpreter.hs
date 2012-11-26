@@ -49,7 +49,9 @@ module Utils.Interpreter (interpreter) where
                 outputStrLn $ evalErrorFile err path
                 evalLoop langName varCounter typingEnv evalEnv memory
               Right (v, ee, mem) -> do
-                outputStrLn $ show v ++ " : " ++ show tp
+                case (v, tp) of
+                  (Just vl, Just t) -> outputStrLn $ show vl ++ " : " ++ show t
+                  _                 -> outputStrLn "Loaded."
                 evalLoop langName vc te ee mem
 
   handleException :: (MonadException m, Language n p tp e i v) => n -> Integer -> TE.Env tp -> EE.Env v e -> Memory v -> IOException -> InputT m ()
