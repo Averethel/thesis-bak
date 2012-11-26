@@ -23,7 +23,7 @@ module Languages.MiniML.Syntax where
     | U_Head
     | U_Tail
     deriving Eq
-  
+
   data BinaryPrim =
       B_Eq
     | B_I_Plus
@@ -91,7 +91,7 @@ module Languages.MiniML.Syntax where
 
   type Program = [Instruction]
 
-  data Kind = 
+  data Kind =
       K_Type
     | K_Arrow Kind Kind
     deriving Eq
