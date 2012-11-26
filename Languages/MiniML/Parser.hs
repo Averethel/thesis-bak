@@ -1,18 +1,19 @@
---(inputParser, program, expressionParser)
 module Languages.MiniML.Parser  where
   import Languages.MiniML.Syntax
-  import Languages.MiniML.PrettyPrint
+
+  import Utils.RunParser
 
   import Control.Applicative hiding ((<|>), many)
   import Data.Functor
   import Data.Functor.Identity
 
   import Text.Parsec.Language
-  import Text.Parsec.Prim
+  import Text.Parsec.Prim hiding (runParser)
   import Text.Parsec.Char
   import Text.Parsec.Combinator
   import Text.Parsec.Expr
   import Text.Parsec.Error
+  import Text.Parsec.String (parseFromFile)
   import qualified Text.Parsec.Token as PTok
 
   type Parser = ParsecT String () Identity
@@ -222,11 +223,11 @@ module Languages.MiniML.Parser  where
   program :: Parser Program
   program = many instruction
 
-  runPp :: Parser a -> String -> Either ParseError a
-  runPp p = parse (PTok.whiteSpace lang  >> p) ""
+  parseExpression :: String -> Either ParseError Expr
+  parseExpression = runParser lang expression
 
-  inputParser :: String -> Either ParseError Instruction
-  inputParser = runPp instruction
+  parseInstruction :: String -> Either ParseError Instruction
+  parseInstruction = runParser lang instruction
 
-  expressionParser :: String -> Either ParseError Expr
-  expressionParser = runPp (expression <* reservedOp ";;")
+  parseProgramFromFile :: String -> IO (Either ParseError Program)
+  parseProgramFromFile = parseFromFile program
