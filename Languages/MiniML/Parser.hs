@@ -45,7 +45,7 @@ module Languages.MiniML.Parser  where
   lang :: PTok.GenTokenParser String u Identity
   lang = PTok.makeTokenParser langDef
 
-  identifier :: Parser LowercaseIdent
+  identifier :: Parser Name
   identifier = PTok.identifier lang
 
   reserved :: String -> Parser ()
