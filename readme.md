@@ -8,7 +8,10 @@ Implementing MiniML compiler to ZINC bytecode
 
 Currently working on
 ====================
-* Defunctionalization of MiniML interpreter & ectracting common interface parts to a module (feature/miniml-interpreter-refactor)
+* Defunctionalization of MiniML evaluator
+* Defunctionalization of Enriched Lambda Calculus evaluator
+* Description of MiniML
+* Description of Enriched Lambda Calculus
 
 Changelog
 =========
@@ -17,6 +20,8 @@ Changelog
         * Correct definition of Values for MiniML
         * Rewrote typing for MiniML
         * Rewrote evaluation for MiniML
+        * Parsing funtion applications without @ operator in MiniML
+        * Parsing funtion applications without @ operator in EnrichedLambda Calculus
     * [Utils]
         * Slightly modified Language class (program can have not Type & no Value)
         * Interpreter can now show defined bindings
