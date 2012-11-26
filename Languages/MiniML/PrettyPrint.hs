@@ -3,6 +3,9 @@ module Languages.MiniML.PrettyPrint where
 
   import Languages.MiniML.Syntax
 
+  instance Show MiniMLName where
+    show MiniML = "Mini ML"
+
   isInfix :: BinaryPrim -> Bool
   isInfix _ = True
 

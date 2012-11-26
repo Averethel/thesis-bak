@@ -1,4 +1,5 @@
 module Languages.MiniML.Syntax where
+  data MiniMLName = MiniML
 
   type LowercaseIdent = String
 
