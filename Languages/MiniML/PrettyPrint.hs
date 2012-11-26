@@ -31,7 +31,7 @@ module Languages.MiniML.PrettyPrint where
   isAtomicValue (V_List [])    = True
   isAtomicValue (V_List (_:_)) = False
   isAtomicValue (V_Tuple _)    = True
-  isAtomicValue (V_Clo _ _ _)  = True
+  isAtomicValue (V_Clo _ _)    = True
 
   isAtomicKind :: Kind -> Bool
   isAtomicKind K_Type = True
@@ -231,7 +231,7 @@ module Languages.MiniML.PrettyPrint where
                                         iInterleave (iStr ", ") $
                                         map pprValue vs,
                                         iStr ")" ]
-  pprValue (V_Clo _ _ _)    = iStr "Function."
+  pprValue (V_Clo _ _)      = iStr "Function."
   pprValue V_Null           = iNil
 
   instance Show Value where

@@ -77,7 +77,7 @@ module Languages.MiniML.Syntax where
     | V_Bool Bool
     | V_List [Value]
     | V_Tuple [Value]
-    | V_Clo (Env Value Expr) Name Expr
+    | V_Clo (Env Value Expr) [FunBinding]
     | V_Null
     deriving Eq
 
