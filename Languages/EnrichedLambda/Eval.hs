@@ -214,10 +214,10 @@ module Languages.EnrichedLambda.Eval where
     (v, mem') <- evalExpression mem env ex
     return (Just v, (env `extend` ("it", v)), mem')
 
-  evalProgram :: MonadError String m => Memory Value -> Env Value Expr -> Program -> m (Value, Env Value Expr, Memory Value)
+  evalProgram :: MonadError String m => Memory Value -> Env Value Expr -> Program -> m (Maybe Value, Env Value Expr, Memory Value)
   evalProgram mem env ([],     e) = do
     (v, mem') <- evalExpression mem env e
-    return (v, (env `extend` ("it", v)), mem')
+    return (Just v, (env `extend` ("it", v)), mem')
   evalProgram mem env ((d:ds), e) = do
     (env', mem') <- evalDefinition mem env d
     evalProgram mem' env' (ds, e)

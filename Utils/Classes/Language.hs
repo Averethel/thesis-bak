@@ -36,7 +36,7 @@ module Utils.Classes.Language where
     typeOfInstruction    :: Integer -> TE.Env tp -> i -> Either String (Maybe tp, TE.Env tp, Integer)
     typeOfProgram        :: Integer -> TE.Env tp -> p -> Either String (Maybe tp, TE.Env tp, Integer)
     evalInstruction      :: Memory v -> EE.Env v e -> i -> Either String (Maybe v, EE.Env v e, Memory v)
-    evalProgram          :: Memory v -> EE.Env v e -> p -> Either String (v, EE.Env v e, Memory v)
+    evalProgram          :: Memory v -> EE.Env v e -> p -> Either String (Maybe v, EE.Env v e, Memory v)
     parseExpression      :: n -> String -> Either ParseError e
     parseInstruction     :: n -> String -> Either ParseError i
     parseProgramFromFile :: n -> String -> IO (Either ParseError p)
