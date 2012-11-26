@@ -67,7 +67,6 @@ module Languages.MiniML.Syntax where
     | E_LetRec [LetRecBinding] Expr
     | E_MatchFailure
     | E_FatBar Expr Expr
-    | Null
     deriving Eq
 
   data Value =
@@ -78,7 +77,9 @@ module Languages.MiniML.Syntax where
     | V_Bool Bool
     | V_List [Value]
     | V_Tuple [Value]
-    | V_Fun (Value -> Value)
+    | V_Clo (Env Value Expr) ValueName Expr
+    | V_Null
+    deriving Eq
 
   data Definition =
       D_Let [Binding]
