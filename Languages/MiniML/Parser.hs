@@ -194,7 +194,7 @@ module Languages.MiniML.Parser  where
                 [Prefix (reserved "head" *> pure (E_Apply (E_UPrim U_Head)))],
                 [Prefix (reserved "tail" *> pure (E_Apply (E_UPrim U_Tail)))],
                 [Prefix (reserved "empty?" *> pure (E_Apply (E_UPrim U_Empty)))],
-                [Infix (reservedOp "@" *> pure E_Apply) AssocLeft],
+                [Infix (pure E_Apply) AssocLeft],
                 [Infix (reservedOp "::" *> pure E_Cons) AssocRight],
                 [Infix (reservedOp "&&" *> pure E_And) AssocLeft],
                 [Infix (reservedOp "||" *> pure E_Or) AssocLeft],
