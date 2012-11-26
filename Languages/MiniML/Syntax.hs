@@ -52,7 +52,6 @@ module Languages.MiniML.Syntax where
       E_UPrim UnaryPrim
     | E_BPrim BinaryPrim
     | E_Val Name
-    | E_Location Integer
     | E_Const Constant
     | E_Apply Expr Expr
     | E_Cons Expr Expr
@@ -79,6 +78,7 @@ module Languages.MiniML.Syntax where
     | V_Tuple [Value]
     | V_Clo (Env Value Expr) [FunBinding]
     | V_Null
+    | V_Pointer Integer
     deriving Eq
 
   data Definition =

@@ -17,7 +17,6 @@ module Languages.MiniML.PrettyPrint where
 
   isAtomicExpr :: Expr -> Bool
   isAtomicExpr (E_Val _)      = True
-  isAtomicExpr (E_Location _) = True
   isAtomicExpr (E_Const _)    = True
   isAtomicExpr (E_UPrim _)    = True
   isAtomicExpr _              = False
@@ -32,6 +31,7 @@ module Languages.MiniML.PrettyPrint where
   isAtomicValue (V_List (_:_)) = False
   isAtomicValue (V_Tuple _)    = True
   isAtomicValue (V_Clo _ _)    = True
+  isAtomicValue (V_Pointer _)     = True
 
   isAtomicKind :: Kind -> Bool
   isAtomicKind K_Type = True
@@ -154,8 +154,6 @@ module Languages.MiniML.PrettyPrint where
     pprBinaryPrim bp
   pprExpr (E_Val v)                               =
     iStr v
-  pprExpr (E_Location n)                          =
-    iStr "Mem@" `iAppend` (iStr $ show n)
   pprExpr (E_Const c)                             =
     pprConstant c
   pprExpr (E_Apply (E_Apply (E_BPrim bp) e1) e2)
@@ -233,6 +231,8 @@ module Languages.MiniML.PrettyPrint where
                                         iStr ")" ]
   pprValue (V_Clo _ _)      = iStr "Function."
   pprValue V_Null           = iNil
+  pprValue (V_Pointer n)    = (iStr "Mem@") `iAppend`
+                              (iStr $ show n)
 
   instance Show Value where
     show = show . pprValue
