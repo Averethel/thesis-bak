@@ -1,6 +1,5 @@
  module Languages.EnrichedLambda.Syntax where
   import Utils.EvalEnv
-  import Utils.Memory
 
   data LambdaName = EnrichedLambda
 
