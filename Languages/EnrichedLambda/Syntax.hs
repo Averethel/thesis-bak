@@ -71,7 +71,6 @@
     | E_BPrim BinaryPrim
     | E_Val Name
     | E_Num Integer
-    | E_Location Integer
     | E_Constr TypeTag ConstrTag Arity
     | E_Seq Expr Expr
     | E_Apply Expr Expr

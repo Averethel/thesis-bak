@@ -18,7 +18,6 @@ module Languages.EnrichedLambda.PrettyPrint () where
   isAtomicExpr :: Expr -> Bool
   isAtomicExpr (E_Val _)      = True
   isAtomicExpr (E_Num _)      = True
-  isAtomicExpr (E_Location _) = True
   isAtomicExpr _              = False
 
   isAtomicValue :: Value -> Bool
