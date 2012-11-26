@@ -2,7 +2,7 @@
   FlexibleContexts
   #-}
 
-module Utils.EvalEnv (Env, emptyEnv, get, extend, extendRec)
+module Utils.EvalEnv (Env, emptyEnv, get, extend, extendMany, extendRec)
 where
   import Utils.Classes.Clojure
   import Utils.Errors
@@ -31,6 +31,9 @@ where
 
   extend :: Clojure v e => Env v e -> (String, v) -> Env v e
   extend env (n, v) = Simple n v env
+
+  extendMany :: Clojure v e => Env v e -> [(String, v)] -> Env v e
+  extendMany = foldl extend
 
   extendRec :: Clojure v e => Env v e -> [(String, e)] -> Env v e
   extendRec env e = Recursive e env
