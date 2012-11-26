@@ -16,8 +16,9 @@ Changelog
     * [Languages]
         * Correct definition of Values for MiniML
         * Rewrote typing for MiniML
+        * Rewrote evaluation for MiniML
     * [Utils]
-        * Slightly modified Language class
+        * Slightly modified Language class (program can have not Type & no Value)
 * 23 XI 2012
     * [Languages]
         * Finished work on Enriched Lambda Calculus
