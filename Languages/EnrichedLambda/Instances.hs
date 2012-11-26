@@ -18,8 +18,6 @@ module Languages.EnrichedLambda.Instances where
   import Languages.EnrichedLambda.PrettyPrint
   import Languages.EnrichedLambda.Syntax
 
-  import Data.Maybe
-
   instance LN.LanguageName LambdaName
 
   instance PC.Program Program
