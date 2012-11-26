@@ -98,7 +98,7 @@ module Languages.EnrichedLambda.Eval where
       return (V_Cell boolTag falseTag [], mem)
   applyBinaryPrim mem B_Eq     (V_Pointer a)     (V_Pointer b)         = do
     (v1, mem1) <- applyUnaryPrim mem U_Deref (V_Pointer a)
-    (v2, mem2) <- applyUnaryPrim mem U_Deref (V_Pointer b)
+    (v2, mem2) <- applyUnaryPrim mem1 U_Deref (V_Pointer b)
     applyBinaryPrim mem2 B_Eq v1 v2
   applyBinaryPrim mem B_Plus   (V_Int n)         (V_Int m)             =
     return (V_Int $ n + m, mem)
