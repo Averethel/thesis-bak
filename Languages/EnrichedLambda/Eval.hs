@@ -178,8 +178,8 @@ module Languages.EnrichedLambda.Eval where
     case tp == unitTag && cs == unitTagC of
       True -> evalExpression mem1 env e2
   evalExpression mem env (E_Apply e1 e2)    = do
-    (v1, mem1) <- evalExpression mem env e1
-    (v2, mem2) <- evalExpression mem1 env e2
+    (v2, mem1) <- evalExpression mem env e2
+    (v1, mem2) <- evalExpression mem1 env e1
     performApplication mem2 env v1 v2
   evalExpression mem env (E_Rescue e1 e2)   = do
     (v1, mem1) <- evalExpression mem env e1
