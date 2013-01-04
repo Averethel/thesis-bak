@@ -175,8 +175,8 @@ module Languages.MiniML.Eval where
     v <- evalConstant c
     return (v, mem)
   evalExpression mem env (E_Apply e1 e2)  = do
-    (v1, mem1) <- evalExpression mem env e1
-    (v2, mem2) <- evalExpression mem env e2
+    (v2, mem1) <- evalExpression mem env e2
+    (v1, mem2) <- evalExpression mem1 env e1
     performApplication mem2 env v1 v2
   evalExpression mem env (E_Cons e1 e2)   = do
     (v1, mem1)        <- evalExpression mem env e1
